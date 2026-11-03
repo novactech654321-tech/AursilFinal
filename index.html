@@ -206,8 +206,12 @@
       <li><a href="#features">Why AurSil</a></li>
     </ul>
     <div class="actions">
-      <button class="btn btn-outline" onclick="openModal('login')">Login</button>
-      <button class="btn btn-gold" onclick="openModal('register')">Register</button>
+      <div id="userBadge" style="display:none;align-items:center;gap:10px;">
+        <span id="userBadgeText" style="color:#fff;font-size:14px;font-weight:600"></span>
+        <button class="btn btn-outline" onclick="logoutUser()">Logout</button>
+      </div>
+      <button id="loginBtn" class="btn btn-outline" onclick="openModal('login')">Login</button>
+      <button id="registerBtn" class="btn btn-gold" onclick="openModal('register')">Register</button>
       <button class="menu-btn" onclick="document.getElementById('menu').classList.toggle('open')">☰</button>
     </div>
   </div>
@@ -249,7 +253,7 @@
         <div><span>GST (3%)</span><span id="wGst">₹29.13</span></div>
         <div class="total"><span>Total payable</span><span id="wTot">₹1,000.00</span></div>
       </div>
-      <button class="btn btn-gold" onclick="openModal('login')">Buy Now</button>
+      <button class="btn btn-gold" onclick="handlePurchase()">Buy Now</button>
     </div>
   </div>
 </div>
@@ -313,7 +317,7 @@
   <div class="container">
     <div class="title"><span class="eyebrow">HOW IT WORKS</span><h2>Start investing in 4 simple steps</h2></div>
     <div class="steps">
-      <div class="step"><div class="n">1</div><h4>Register</h4><p>Sign up with your email and mobile. Verify with an OTP.</p></div>
+      <div class="step"><div class="n">1</div><h4>Register</h4><p>Sign up with your email and mobile. Your account becomes active immediately.</p></div>
       <div class="step"><div class="n">2</div><h4>Choose a metal</h4><p>Gold, silver or platinum at live market prices.</p></div>
       <div class="step"><div class="n">3</div><h4>Pay securely</h4><p>Buy in rupees or grams via UPI, card or netbanking.</p></div>
       <div class="step"><div class="n">4</div><h4>Sell anytime</h4><p>Get money credited straight to your bank account.</p></div>
@@ -399,10 +403,10 @@
     <div id="m-login">
       <div class="mh"><span class="x" onclick="closeModal()">✕</span><div class="brand" style="justify-content:center;font-size:28px"><span class="a">Aur</span><span class="s">Sil</span></div><div style="color:#AEB8CC;font-size:14px">Welcome back! Log in to continue</div></div>
       <div class="mb">
-        <label>User ID or Email</label><input class="f" placeholder="Enter User ID or Email">
-        <label>Password</label><input class="f" type="password" placeholder="Enter password">
+        <label>User ID or Email</label><input id="loginUserField" class="f" placeholder="Enter User ID or Email">
+        <label>Password</label><input id="loginPasswordField" class="f" type="password" placeholder="Enter password">
         <div style="text-align:right;margin-top:8px"><a style="color:var(--gold2);font-size:13px;font-weight:600;cursor:pointer" onclick="showModal('forgot')">Forgot password?</a></div>
-        <button class="btn btn-gold" onclick="toast('UI demo only – login is in the app')">Login</button>
+        <button class="btn btn-gold" onclick="loginUser()">Login</button>
         <div class="alt">New to AurSil? <a onclick="showModal('register')">Register</a></div>
       </div>
     </div>
@@ -410,12 +414,12 @@
     <div id="m-register">
       <div class="mh"><span class="x" onclick="closeModal()">✕</span><h3>Create Account</h3><div style="color:#AEB8CC;font-size:14px">Start investing in Gold, Silver &amp; Platinum</div></div>
       <div class="mb">
-        <label>User ID</label><input class="f" placeholder="e.g. suman_01">
-        <label>Full Name</label><input class="f" placeholder="Enter your full name">
-        <label>Email</label><input class="f" placeholder="you@example.com">
-        <label>Mobile Number</label><input class="f" placeholder="+91  10-digit mobile number">
-        <label>Password</label><input class="f" type="password" placeholder="Min 8 characters, letters + numbers">
-        <button class="btn btn-gold" onclick="showModal('otp')">Register &amp; Send OTP</button>
+        <label>User ID</label><input id="registerUserId" class="f" placeholder="e.g. suman_01">
+        <label>Full Name</label><input id="registerName" class="f" placeholder="Enter your full name">
+        <label>Email</label><input id="registerEmail" class="f" placeholder="you@example.com">
+        <label>Mobile Number</label><input id="registerPhone" class="f" placeholder="+91  10-digit mobile number">
+        <label>Password</label><input id="registerPassword" class="f" type="password" placeholder="Min 8 characters, letters + numbers">
+        <button class="btn btn-gold" onclick="registerUser()">Register</button>
         <div class="alt">Already have an account? <a onclick="showModal('login')">Login</a></div>
       </div>
     </div>
@@ -443,16 +447,312 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ---------- sample data (UI only, no API) ----------
+  // ---------- backend-connected web app state ----------
   const PRICES = {
     gold:     { name:'Gold',     purity:'24K • 99.9%',  buy:13237.17, sell:12845.92, change:-0.29, spot:4016.80 },
     silver:   { name:'Silver',   purity:'99.9% pure',   buy:176.19,   sell:170.98,   change:-1.18, spot:53.47 },
-    platinum: { name:'Platinum', purity:'99.95% pure',  buy:4979.43,  sell:4832.25,  change:-2.11, spot:1511.00 },
+    platinum: { name:'Platinum', purity:'99.95% pure',  buy:4979.43, sell:4832.25, change:-2.11, spot:1511.00 },
   };
   const GST = 0.03;
+  const SESSION_KEY = 'aursil_session';
+  const TOKEN_KEY = 'aursil_token';
+  const PORTFOLIO_KEY = 'aursil_portfolio';
+  // The UI is served by the ASP.NET API on port 5168. If opened as a file,
+  // still send API requests to the local backend.
+  const API_BASE_URL = window.location.protocol === 'file:'
+    ? 'http://localhost:5168'
+    : window.location.origin;
+
   const inr = n => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
   const pct = p => (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p).toFixed(2) + '%';
   const $ = id => document.getElementById(id);
+
+  async function apiRequest(path, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    let response;
+    try {
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        ...options,
+        headers
+      });
+    } catch (error) {
+      throw new Error('Cannot reach AurSil backend. Make sure dotnet run is running at http://localhost:5168.');
+    }
+
+    let data = null;
+    const responseText = await response.text();
+    if (responseText) {
+      try { data = JSON.parse(responseText); }
+      catch { data = { message: responseText }; }
+    }
+
+    if (!response.ok) {
+      const message = data?.message || data?.title || data?.detail ||
+        `Request failed with HTTP ${response.status}.`;
+      throw new Error(message);
+    }
+
+    return data || {};
+  }
+
+  function readSession() {
+    // Ignore old demo-only localStorage sessions unless a real backend JWT exists.
+    if (!localStorage.getItem(TOKEN_KEY)) return null;
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }
+    catch { return null; }
+  }
+
+  function saveSession(user, token) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+
+  function clearSession() {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+  }
+
+  function readPortfolio() {
+    try { return JSON.parse(localStorage.getItem(PORTFOLIO_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function savePortfolio(portfolio) {
+    localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio));
+  }
+
+  async function registerUser() {
+    const userId = $('registerUserId').value.trim();
+    const name = $('registerName').value.trim();
+    const email = $('registerEmail').value.trim();
+    const phoneInput = $('registerPhone').value.trim();
+    const password = $('registerPassword').value;
+
+    if (!userId || !name || !email || !phoneInput || !password) {
+      toast('Please complete all fields.');
+      return;
+    }
+
+    // Backend requires exactly 10 digits, not a +91 prefix.
+    let phone = phoneInput.replace(/\D/g, '');
+    if (phone.length === 12 && phone.startsWith('91')) phone = phone.slice(2);
+
+    if (!/^[A-Za-z0-9_]{4,50}$/.test(userId)) {
+      toast('User ID must be 4-50 letters, numbers or underscore.');
+      return;
+    }
+    if (name.length < 2) {
+      toast('Please enter your full name.');
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      toast('Please enter a valid email address.');
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      toast('Enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      toast('Password must be at least 8 characters and contain letters and numbers.');
+      return;
+    }
+
+    const registerButton = document.querySelector('#m-register button.btn-gold');
+    if (registerButton) {
+      registerButton.disabled = true;
+      registerButton.textContent = 'Registering...';
+    }
+
+    try {
+      const result = await apiRequest('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ userId, name, email, phone, password })
+      });
+
+      $('registerUserId').value = '';
+      $('registerName').value = '';
+      $('registerEmail').value = '';
+      $('registerPhone').value = '';
+      $('registerPassword').value = '';
+      $('loginUserField').value = userId;
+
+      toast(result.message || 'Registration successful. Please log in.');
+      showModal('login');
+    } catch (error) {
+      console.error('Registration failed:', error);
+      toast(error.message || 'Registration failed.');
+    } finally {
+      if (registerButton) {
+        registerButton.disabled = false;
+        registerButton.textContent = 'Register';
+      }
+    }
+  }
+
+  async function loginUser() {
+    const input = $('loginUserField').value.trim();
+    const password = $('loginPasswordField').value;
+
+    if (!input || !password) {
+      toast('Enter user ID/email and password.');
+      return;
+    }
+
+    const loginButton = document.querySelector('#m-login button.btn-gold');
+    if (loginButton) {
+      loginButton.disabled = true;
+      loginButton.textContent = 'Logging in...';
+    }
+
+    try {
+      const result = await apiRequest('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ login: input, password })
+      });
+
+      if (!result.token || !result.user) {
+        throw new Error('Login response did not contain a JWT token and user profile.');
+      }
+
+      saveSession(result.user, result.token);
+
+      $('loginUserField').value = '';
+      $('loginPasswordField').value = '';
+      closeModal();
+      renderAuthState();
+      renderPortfolioView();
+      toast('Login successful.');
+    } catch (error) {
+      console.error('Login failed:', error);
+      toast(error.message || 'Login failed.');
+    } finally {
+      if (loginButton) {
+        loginButton.disabled = false;
+        loginButton.textContent = 'Login';
+      }
+    }
+  }
+
+  function logoutUser() {
+    clearSession();
+    renderAuthState();
+    toast('Logged out successfully.');
+  }
+
+  function getCurrentUser() {
+    return readSession();
+  }
+
+  function renderAuthState() {
+    const user = getCurrentUser();
+    const loginBtn = $('loginBtn');
+    const registerBtn = $('registerBtn');
+    const badge = $('userBadge');
+    const badgeText = $('userBadgeText');
+
+    if (user) {
+      loginBtn.style.display = 'none';
+      registerBtn.style.display = 'none';
+      badge.style.display = 'flex';
+      badgeText.textContent = 'Hi, ' + user.name;
+    } else {
+      loginBtn.style.display = 'inline-flex';
+      registerBtn.style.display = 'inline-flex';
+      badge.style.display = 'none';
+    }
+  }
+
+  function ensurePortfolioForUser() {
+    const user = getCurrentUser();
+    if (!user) return {};
+    const portfolio = readPortfolio();
+    if (!portfolio[user.userId]) {
+      portfolio[user.userId] = { gold: 0, silver: 0, platinum: 0, invested: 0, history: [] };
+      savePortfolio(portfolio);
+    }
+    return portfolio[user.userId];
+  }
+
+  function handlePurchase() {
+    const user = getCurrentUser();
+    if (!user) { openModal('login'); return; }
+
+    const rate = PRICES[wMetal].buy;
+    const grams = byGrams ? parseFloat($('wAmt').value) || 0 : ((parseFloat($('wAmt').value) || 0) / (1 + GST)) / rate;
+    const total = parseFloat($('wTot').textContent.replace(/[₹,]/g, '')) || 0;
+    const raw = readPortfolio();
+    const current = raw[user.userId] || { gold: 0, silver: 0, platinum: 0, invested: 0, history: [] };
+
+    const metalKey = wMetal;
+    const metalName = PRICES[wMetal].name;
+    current[metalKey] = (current[metalKey] || 0) + grams;
+    current.invested = (current.invested || 0) + total;
+    current.history = [{
+      type: 'Bought',
+      metal: metalName,
+      grams: grams,
+      amount: total,
+      date: new Date().toLocaleDateString('en-CA')
+    }, ...(current.history || [])].slice(0, 6);
+
+    raw[user.userId] = current;
+    savePortfolio(raw);
+    renderPortfolioView();
+    toast(`${metalName} added to portfolio.`);
+  }
+
+  function renderPortfolioView() {
+    const user = getCurrentUser();
+    const pfEl = document.querySelector('#portfolio .pf');
+    const holdingsEl = document.querySelector('#portfolio .holdings');
+    if (!pfEl || !holdingsEl) return;
+
+    if (!user) {
+      pfEl.innerHTML = '<div style="font-size:14px">Portfolio value</div><div class="v">₹0.00</div><div class="row"><span>Invested</span><b>₹0.00</b></div><div class="row"><span>Returns</span><b>₹0.00</b></div><div class="row"><span>Holdings</span><b>0 metals</b></div>';
+      holdingsEl.innerHTML = '<div class="holding"><div class="mid"><b>Log in to view your portfolio.</b></div></div>';
+      return;
+    }
+
+    const portfolio = readPortfolio()[user.userId] || { gold: 0, silver: 0, platinum: 0, invested: 0, history: [] };
+    const metalKeys = ['gold', 'silver', 'platinum'];
+    const units = Object.fromEntries(metalKeys.map(k => [k, portfolio[k] || 0]));
+    const totalValue = metalKeys.reduce((sum, key) => sum + units[key] * PRICES[key].buy, 0);
+    const holdings = metalKeys.map(key => {
+      const grams = units[key];
+      const value = grams * PRICES[key].buy;
+      const label = PRICES[key].name;
+      return { key, label, grams, value };
+    }).filter(h => h.grams > 0);
+
+    pfEl.innerHTML = `
+      <div style="font-size:14px">Portfolio value</div>
+      <div class="v">${inr(totalValue)}</div>
+      <div class="row"><span>Invested</span><b>${inr(portfolio.invested || 0)}</b></div>
+      <div class="row"><span>Returns</span><b>${inr((totalValue - (portfolio.invested || 0)))}</b></div>
+      <div class="row"><span>Holdings</span><b>${holdings.length} metals</b></div>
+      <button class="btn" style="margin-top:20px;width:100%;background:var(--navy);color:#fff" onclick="openModal('login')">Open My Portfolio</button>
+    `;
+
+    if (holdings.length === 0) {
+      holdingsEl.innerHTML = '<div class="holding"><div class="mid"><b>No holdings yet.</b><small>Buy metals to see your portfolio here.</small></div></div>';
+      return;
+    }
+
+    holdingsEl.innerHTML = holdings.map(h => `
+      <div class="holding">
+        <div class="badge" style="background:${h.key === 'gold' ? 'linear-gradient(135deg,#FFD86B,#C9921A)' : h.key === 'silver' ? 'linear-gradient(135deg,#E6EAF0,#8E98A6);color:var(--navy)' : 'linear-gradient(135deg,#8C6CF5,#3B2A9E)'}">${h.key === 'gold' ? 'Au' : h.key === 'silver' ? 'Ag' : 'Pt'}</div>
+        <div class="mid"><b>${h.label}</b><small>${h.grams.toFixed(4)} g</small></div>
+        <div class="r"><b>${inr(h.value)}</b><small>${h.grams > 0 ? 'Active' : 'Not invested'}</small></div>
+      </div>
+    `).join('');
+  }
 
   // ticker
   const tick = Object.values(PRICES).map(p => `${p.name} <b>${inr(p.buy)}/g</b><span class="${p.change >= 0 ? 'up' : 'down'}">${pct(p.change)}</span>`).join('<span style="opacity:.3">•</span>');
@@ -496,6 +796,8 @@
     $('wVal').textContent = inr(val); $('wGst').textContent = inr(gst); $('wTot').textContent = inr(tot);
   }
   setMode(false);
+  renderAuthState();
+  renderPortfolioView();
 
   // ---------- chart (sample series) ----------
   let cMetal = 'gold', cRange = '1D';
@@ -547,6 +849,7 @@
   function showModal(id) { MODALS.forEach(m => $('m-' + m).style.display = m === id ? 'block' : 'none'); }
   function openModal(id) { showModal(id); $('overlay').classList.add('show'); }
   function closeModal() { $('overlay').classList.remove('show'); }
+  renderAuthState();
   document.querySelectorAll('.otp input').forEach((inp, i, all) => inp.oninput = () => { if (inp.value && all[i + 1]) all[i + 1].focus(); });
   function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(el._t); el._t = setTimeout(() => el.style.display = 'none', 2200); }
 </script>
