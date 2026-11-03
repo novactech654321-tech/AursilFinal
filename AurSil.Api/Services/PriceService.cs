@@ -107,7 +107,7 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
             try { await RefreshAsync(stoppingToken); }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                logger.LogWarning("Live price refresh failed: {Message}", ex.Message);
+                logger.LogWarning(ex, "Live price refresh failed: {Message}", ex.Message);
             }
             await Task.Delay(TimeSpan.FromSeconds(Math.Max(15, options.RefreshSeconds)), stoppingToken);
         }
@@ -126,80 +126,103 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
 
         var now = DateTime.UtcNow;
         var save = now - _lastSavedAt >= TimeSpan.FromMinutes(options.HistoryEveryMinutes);
-        await using var db = new SqlConnection(_connectionString);
 
         foreach (var metal in Metals.All)
         {
             using var doc = JsonDocument.Parse(await http.GetStringAsync($"https://api.gold-api.com/price/{Metals.SpotSymbol(metal)}", ct));
             var spot = doc.RootElement.GetProperty("price").GetDecimal();
             var (buy, sell) = prices.ToInrRates(spot, _usdInr);
-            var change = await prices.ChangePercentAsync(metal, buy);
+            var change = await SafeChangePercentAsync(metal, buy);
             prices.Set(new MetalQuote(metal, buy, sell, spot, _usdInr, change, now));
 
             if (save)
-                await db.ExecuteAsync(
-                    "INSERT INTO PriceHistory (Metal, SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt) VALUES (@metal, @spot, @usdInr, @buy, @sell, @now)",
-                    new { metal, spot, usdInr = _usdInr, buy, sell, now });
+            {
+                try
+                {
+                    await using var db = new SqlConnection(_connectionString);
+                    await db.ExecuteAsync(
+                        "INSERT INTO PriceHistory (Metal, SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt) VALUES (@metal, @spot, @usdInr, @buy, @sell, @now)",
+                        new { metal, spot, usdInr = _usdInr, buy, sell, now });
+                }
+                catch (Exception ex) when (IsDbUnavailable(ex))
+                {
+                    logger.LogWarning(ex, "Price save skipped because SQL Server is unavailable.");
+                }
+            }
         }
 
         if (save)
             _lastSavedAt = now;
     }
 
-    // Serve the last stored prices immediately after a restart, before the first live fetch
     private async Task LoadLastKnownAsync()
     {
-        await using var db = new SqlConnection(_connectionString);
-        foreach (var metal in Metals.All)
+        try
         {
-            var r = await db.QueryFirstOrDefaultAsync<LastPriceRow>(
-                "SELECT TOP 1 SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt FROM PriceHistory WHERE Metal = @metal ORDER BY RecordedAt DESC",
-                new { metal });
-            if (r is not null)
+            await using var db = new SqlConnection(_connectionString);
+            foreach (var metal in Metals.All)
             {
-                prices.Set(new MetalQuote(metal, r.BuyRate, r.SellRate, r.SpotUsdPerOz, r.UsdInr, 0, r.RecordedAt));
-                _usdInr = r.UsdInr;
+                var r = await db.QueryFirstOrDefaultAsync<LastPriceRow>(
+                    "SELECT TOP 1 SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt FROM PriceHistory WHERE Metal = @metal ORDER BY RecordedAt DESC",
+                    new { metal });
+                if (r is not null)
+                {
+                    prices.Set(new MetalQuote(metal, r.BuyRate, r.SellRate, r.SpotUsdPerOz, r.UsdInr, 0, r.RecordedAt));
+                    _usdInr = r.UsdInr;
+                }
             }
+        }
+        catch (Exception ex) when (IsDbUnavailable(ex))
+        {
+            logger.LogWarning(ex, "SQL Server not available; using fallback in-memory prices.");
+            SeedFallbackPrices();
         }
     }
 
-    // Fills a year of history from Yahoo Finance futures so the charts work on day one
     private async Task BackfillIfEmptyAsync(CancellationToken ct)
     {
-        await using var db = new SqlConnection(_connectionString);
-        if (await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM PriceHistory") > 0)
-            return;
-
-        logger.LogInformation("Backfilling price history from Yahoo Finance...");
-        var ranges = new[] { ("1y", "1d"), ("1mo", "60m"), ("5d", "15m"), ("1d", "5m") };
-
-        var fx = new SortedList<DateTime, decimal>();
-        foreach (var (range, interval) in ranges)
-            foreach (var (t, v) in await YahooSeriesAsync("INR=X", range, interval, ct))
-                fx[t] = v;
-        if (fx.Count == 0)
-            return;
-
-        var rows = new List<object>();
-        foreach (var metal in Metals.All)
+        try
         {
-            var series = new SortedList<DateTime, decimal>();
+            await using var db = new SqlConnection(_connectionString);
+            if (await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM PriceHistory") > 0)
+                return;
+
+            logger.LogInformation("Backfilling price history from Yahoo Finance...");
+            var ranges = new[] { ("1y", "1d"), ("1mo", "60m"), ("5d", "15m"), ("1d", "5m") };
+
+            var fx = new SortedList<DateTime, decimal>();
             foreach (var (range, interval) in ranges)
-                foreach (var (t, v) in await YahooSeriesAsync(Metals.YahooSymbol(metal), range, interval, ct))
-                    series[t] = v;
+                foreach (var (t, v) in await YahooSeriesAsync("INR=X", range, interval, ct))
+                    fx[t] = v;
+            if (fx.Count == 0)
+                return;
 
-            foreach (var (t, spot) in series)
+            var rows = new List<object>();
+            foreach (var metal in Metals.All)
             {
-                var usdInr = NearestValue(fx, t);
-                var (buy, sell) = prices.ToInrRates(spot, usdInr);
-                rows.Add(new { metal, spot, usdInr, buy, sell, t });
-            }
-        }
+                var series = new SortedList<DateTime, decimal>();
+                foreach (var (range, interval) in ranges)
+                    foreach (var (t, v) in await YahooSeriesAsync(Metals.YahooSymbol(metal), range, interval, ct))
+                        series[t] = v;
 
-        await db.ExecuteAsync(
-            "INSERT INTO PriceHistory (Metal, SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt) VALUES (@metal, @spot, @usdInr, @buy, @sell, @t)",
-            rows);
-        logger.LogInformation("Backfilled {Count} price points", rows.Count);
+                foreach (var (t, spot) in series)
+                {
+                    var usdInr = NearestValue(fx, t);
+                    var (buy, sell) = prices.ToInrRates(spot, usdInr);
+                    rows.Add(new { metal, spot, usdInr, buy, sell, t });
+                }
+            }
+
+            await db.ExecuteAsync(
+                "INSERT INTO PriceHistory (Metal, SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt) VALUES (@metal, @spot, @usdInr, @buy, @sell, @t)",
+                rows);
+            logger.LogInformation("Backfilled {Count} price points", rows.Count);
+        }
+        catch (Exception ex) when (IsDbUnavailable(ex))
+        {
+            logger.LogWarning(ex, "Price history backfill skipped because SQL Server is unavailable.");
+            SeedFallbackPrices();
+        }
     }
 
     private async Task<List<(DateTime, decimal)>> YahooSeriesAsync(string symbol, string range, string interval, CancellationToken ct)
@@ -221,6 +244,41 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
         }
         return list;
     }
+
+    private async Task<decimal> SafeChangePercentAsync(string metal, decimal currentBuy)
+    {
+        try
+        {
+            await using var db = new SqlConnection(_connectionString);
+            var dayAgo = await db.QueryFirstOrDefaultAsync<decimal?>(
+                "SELECT TOP 1 BuyRate FROM PriceHistory WHERE Metal = @metal AND RecordedAt <= @t ORDER BY RecordedAt DESC",
+                new { metal, t = DateTime.UtcNow.AddHours(-24) });
+            return dayAgo is > 0 ? Math.Round((currentBuy - dayAgo.Value) / dayAgo.Value * 100, 2) : 0;
+        }
+        catch (Exception ex) when (IsDbUnavailable(ex))
+        {
+            logger.LogWarning(ex, "Skipping change calculation because SQL Server is unavailable.");
+            return 0m;
+        }
+    }
+
+    private void SeedFallbackPrices()
+    {
+        var now = DateTime.UtcNow;
+        var seed = new Dictionary<string, (decimal Buy, decimal Sell, decimal Spot, decimal UsdInr, decimal Change)>
+        {
+            [Metals.Gold] = (13237.17m, 12845.92m, 4016.80m, 83.35m, -0.29m),
+            [Metals.Silver] = (176.19m, 170.98m, 53.47m, 83.35m, -1.18m),
+            [Metals.Platinum] = (4979.43m, 4832.25m, 1511.00m, 83.35m, -2.11m)
+        };
+
+        foreach (var (metal, quote) in seed)
+        {
+            prices.Set(new MetalQuote(metal, quote.Buy, quote.Sell, quote.Spot, quote.UsdInr, quote.Change, now));
+        }
+    }
+
+    private static bool IsDbUnavailable(Exception ex) => ex is SqlException || ex is InvalidOperationException || ex is TimeoutException;
 
     private class LastPriceRow
     {
