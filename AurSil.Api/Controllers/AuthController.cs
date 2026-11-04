@@ -70,10 +70,20 @@ public partial class AuthController(IConfiguration config, OtpService otp, Email
                 INSERT INTO Users (UserId, Name, Email, Phone, PasswordHash, Status)
                 VALUES (@userId, @name, @mail, @phone, @hash, @status)
                 """,
-                new { userId, name, mail, phone, hash = PasswordHasher.Hash(req.Password), status = UserStatus.Active });
+                new { userId, name, mail, phone, hash = PasswordHasher.Hash(req.Password), status = UserStatus.Pending });
         }
 
-        return Ok(new ApiMessage("Registration successful. You can now log in."));
+       var code = await otp.CreateAsync(mail, OtpPurpose.Register);
+
+await email.SendOtpAsync(
+    mail,
+    name,
+    code,
+    OtpPurpose.Register,
+    otp.ExpiryMinutes
+);
+
+return Ok(new ApiMessage("Registration successful. Please verify your email using the OTP sent."));
     }
 
     [HttpPost("verify-otp")]

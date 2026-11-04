@@ -1,7 +1,7 @@
 -- AurSil v2: investments, payments, bank accounts, price history
 -- Run: sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -i Database\aursil_schema_v2.sql
 
-USE AursilDB1;
+USE AursilDB;
 GO
 
 IF OBJECT_ID('dbo.PriceHistory') IS NULL
