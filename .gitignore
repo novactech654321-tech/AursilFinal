@@ -5,3 +5,7 @@ obj/
 
 # Secrets (Gmail app password, Razorpay keys) - never commit
 AurSil.Api/appsettings.Development.json
+
+# Daily activity logs
+AurSil.Api/Logs/
+scripts/output/

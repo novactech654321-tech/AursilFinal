@@ -115,6 +115,12 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
 
     private async Task RefreshAsync(CancellationToken ct)
     {
+        if (!string.IsNullOrWhiteSpace(config["Nebula:ApiKey"]))
+        {
+            await RefreshFromNebulaAsync(ct);
+            return;
+        }
+
         var http = httpFactory.CreateClient("prices");
 
         if (_usdInr == 0 || DateTime.UtcNow - _fxFetchedAt > TimeSpan.FromHours(1))
@@ -155,6 +161,127 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
             _lastSavedAt = now;
     }
 
+    // Nebula Metals returns Indian-market INR prices per gram. basePricePerGram already includes import duty and the
+    // domestic premium but NOT GST (GST is added at checkout by AurSil), so it is used directly as the buy rate and the
+    // sell rate is the buy rate less the configured spread.
+    private async Task RefreshFromNebulaAsync(CancellationToken ct)
+    {
+        var baseUrl = (config["Nebula:BaseUrl"] ?? "https://workspace.nebulaapi.com").TrimEnd('/');
+        var city = Uri.EscapeDataString(config["Nebula:City"] ?? "Chennai");
+        var http = httpFactory.CreateClient("prices");
+
+        var endpoints = new Dictionary<string, (string Path, string Key)>
+        {
+            [Metals.Gold] = ($"/gold_price?city={city}", "gold24k"),
+            [Metals.Silver] = ($"/silver_price?city={city}", "silver"),
+            [Metals.Platinum] = ("/platinum_price", "platinum"),
+        };
+
+        var now = DateTime.UtcNow;
+        var save = now - _lastSavedAt >= TimeSpan.FromMinutes(options.HistoryEveryMinutes);
+
+        foreach (var metal in Metals.All)
+        {
+            var (path, key) = endpoints[metal];
+
+            // Live call first. If Nebula refuses (no credits, network down...) use the file saved by scripts/get-prices.sh.
+            string json;
+            var fromFile = false;
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + path);
+                request.Headers.Add("x-api-key", config["Nebula:ApiKey"]);
+                request.Headers.Accept.ParseAdd("application/json");
+                using var response = await http.SendAsync(request, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync(ct);
+                    throw new HttpRequestException($"Nebula {path} returned {(int)response.StatusCode}: {body}");
+                }
+                json = await response.Content.ReadAsStringAsync(ct);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            {
+                var saved = ReadSavedNebulaFile(metal);
+                if (saved is null) throw;
+                logger.LogWarning("Nebula live call failed ({Message}); using saved file for {Metal}", ex.Message, metal);
+                json = saved;
+                fromFile = true;
+            }
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            // A saved file keeps the time Nebula produced it, so the page shows the real age of the price
+            var asOf = fromFile && root.TryGetProperty("timestamp", out var ts) && ts.TryGetDateTime(out var t) ? t.ToUniversalTime() : now;
+            var buy = Math.Round(root.GetProperty("prices").GetProperty(key).GetProperty("basePricePerGram").GetDecimal(), 2);
+            var sell = Math.Round(buy * (1 - options.SpreadPercent / 100), 2);
+
+            decimal spot = 0, usdInr = _usdInr;
+            if (root.TryGetProperty("metadata", out var meta) && meta.TryGetProperty("source_details", out var sd) &&
+                sd.TryGetProperty("engine", out var engine))
+            {
+                if (engine.TryGetProperty("spot_usd_oz", out var s1)) spot = s1.GetDecimal();
+                if (engine.TryGetProperty("usd_inr", out var s2)) usdInr = s2.GetDecimal();
+            }
+            _usdInr = usdInr;
+
+            var change = await SafeSpotChangePercentAsync(metal, spot);
+            prices.Set(new MetalQuote(metal, buy, sell, spot, usdInr, change, asOf));
+
+            if (save && !fromFile)
+            {
+                try
+                {
+                    await using var db = new SqlConnection(_connectionString);
+                    await db.ExecuteAsync(
+                        "INSERT INTO PriceHistory (Metal, SpotUsdPerOz, UsdInr, BuyRate, SellRate, RecordedAt) VALUES (@metal, @spot, @usdInr, @buy, @sell, @now)",
+                        new { metal, spot, usdInr, buy, sell, now });
+                }
+                catch (Exception ex) when (IsDbUnavailable(ex))
+                {
+                    logger.LogWarning(ex, "Price save skipped because SQL Server is unavailable.");
+                }
+            }
+        }
+
+        if (save)
+            _lastSavedAt = now;
+    }
+
+    // The three files written by scripts/get-prices.sh (gold.json, silver.json, platinum.json)
+    private string? ReadSavedNebulaFile(string metal)
+    {
+        try
+        {
+            var dir = Path.GetFullPath(config["Nebula:FilesDirectory"] ?? "../scripts/output", Directory.GetCurrentDirectory());
+            var file = Path.Combine(dir, metal + ".json");
+            if (!File.Exists(file)) return null;
+            var text = File.ReadAllText(file);
+            // Ignore a file holding an error message instead of prices
+            return text.Contains("\"success\":true") ? text : null;
+        }
+        catch { return null; }
+    }
+
+    // 24h change measured on the USD spot price, so it stays correct even though older history rows were priced with
+    // a different formula than Nebula's.
+    private async Task<decimal> SafeSpotChangePercentAsync(string metal, decimal spotNow)
+    {
+        if (spotNow <= 0) return 0;
+        try
+        {
+            await using var db = new SqlConnection(_connectionString);
+            var dayAgo = await db.QueryFirstOrDefaultAsync<decimal?>(
+                "SELECT TOP 1 SpotUsdPerOz FROM PriceHistory WHERE Metal = @metal AND RecordedAt <= @t ORDER BY RecordedAt DESC",
+                new { metal, t = DateTime.UtcNow.AddHours(-24) });
+            return dayAgo is > 0 ? Math.Round((spotNow - dayAgo.Value) / dayAgo.Value * 100, 2) : 0;
+        }
+        catch (Exception ex) when (IsDbUnavailable(ex))
+        {
+            return 0m;
+        }
+    }
+
     private async Task LoadLastKnownAsync()
     {
         try
@@ -174,8 +301,7 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
         }
         catch (Exception ex) when (IsDbUnavailable(ex))
         {
-            logger.LogWarning(ex, "SQL Server not available; using fallback in-memory prices.");
-            SeedFallbackPrices();
+            logger.LogWarning(ex, "SQL Server not available; waiting for the first live price instead.");
         }
     }
 
@@ -221,7 +347,6 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
         catch (Exception ex) when (IsDbUnavailable(ex))
         {
             logger.LogWarning(ex, "Price history backfill skipped because SQL Server is unavailable.");
-            SeedFallbackPrices();
         }
     }
 
@@ -259,22 +384,6 @@ public class PriceUpdater(PriceService prices, PricingOptions options, IConfigur
         {
             logger.LogWarning(ex, "Skipping change calculation because SQL Server is unavailable.");
             return 0m;
-        }
-    }
-
-    private void SeedFallbackPrices()
-    {
-        var now = DateTime.UtcNow;
-        var seed = new Dictionary<string, (decimal Buy, decimal Sell, decimal Spot, decimal UsdInr, decimal Change)>
-        {
-            [Metals.Gold] = (13237.17m, 12845.92m, 4016.80m, 83.35m, -0.29m),
-            [Metals.Silver] = (176.19m, 170.98m, 53.47m, 83.35m, -1.18m),
-            [Metals.Platinum] = (4979.43m, 4832.25m, 1511.00m, 83.35m, -2.11m)
-        };
-
-        foreach (var (metal, quote) in seed)
-        {
-            prices.Set(new MetalQuote(metal, quote.Buy, quote.Sell, quote.Spot, quote.UsdInr, quote.Change, now));
         }
     }
 

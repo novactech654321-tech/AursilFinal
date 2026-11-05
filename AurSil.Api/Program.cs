@@ -13,7 +13,11 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Controllers and JSON configuration
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
-        o.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter()));
+    {
+        o.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
+        // Dapper dynamic rows serialize as dictionaries; keep their keys camelCase like the rest of the API
+        o.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+    });
 
 // 2. Swagger configuration
 builder.Services.AddEndpointsApiExplorer();
@@ -61,6 +65,13 @@ builder.Services.AddHttpClient("prices", c =>
     c.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 AurSil/1.0");
 });
 
+builder.Services.AddHttpClient("anthropic", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(120);
+});
+
+builder.Services.AddDataProtection();
+
 builder.Services.AddHttpClient("razorpay", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(20);
@@ -79,14 +90,18 @@ builder.Services.AddSingleton(
     builder.Configuration.GetSection("Razorpay").Get<RazorpayOptions>()
     ?? new RazorpayOptions());
 
+builder.Services.AddSingleton<ActivityLog>();
 builder.Services.AddSingleton<EmailSender>();
 builder.Services.AddSingleton<OtpService>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<PriceService>();
 builder.Services.AddSingleton<RazorpayService>();
+builder.Services.AddSingleton<StockService>();
 builder.Services.AddSingleton<OrderService>();
+builder.Services.AddSingleton<ChatTools>();
 
 builder.Services.AddHostedService<PriceUpdater>();
+builder.Services.AddHostedService<AutopayService>();
 
 // 5. JWT Authentication
 builder.Services.AddAuthentication(
@@ -114,6 +129,9 @@ builder.Services.AddCors(options =>
 
 // 7. Build application
 var app = builder.Build();
+
+// 7b. Make sure an admin account exists
+await AdminSeeder.EnsureAdminAsync(app.Configuration, app.Logger);
 
 // 8. Static files
 var projectRoot = Path.GetFullPath(
@@ -148,6 +166,31 @@ if (app.Environment.IsDevelopment())
 }
 
 // 10. Authentication and Authorization
+// 10b. Daily activity log: every API / payment-page request, with the user, result and time.
+// Registered before authentication so rejected (401/403) requests are logged too; context.User is filled in downstream.
+var activity = app.Services.GetRequiredService<ActivityLog>();
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
+    var track = (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/pay/", StringComparison.OrdinalIgnoreCase))
+                && !path.StartsWith("/api/health", StringComparison.OrdinalIgnoreCase)
+                && !path.StartsWith("/api/prices", StringComparison.OrdinalIgnoreCase)
+                && !path.StartsWith("/api/stock", StringComparison.OrdinalIgnoreCase);
+    if (!track) { await next(); return; }
+
+    var started = DateTime.UtcNow;
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        var user = context.User.Identity?.IsAuthenticated == true ? context.User.UserId() : null;
+        activity.Write("REQUEST", user,
+            $"{context.Request.Method} {path} -> {context.Response.StatusCode} ({(DateTime.UtcNow - started).TotalMilliseconds:0} ms) ip={context.Connection.RemoteIpAddress}");
+    }
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -228,4 +271,40 @@ class UtcDateTimeConverter : JsonConverter<DateTime>
                 value,
                 DateTimeKind.Utc
             ).ToString("yyyy-MM-ddTHH:mm:ssZ"));
+}
+
+static class AdminSeeder
+{
+    public static async Task EnsureAdminAsync(IConfiguration config, ILogger logger)
+    {
+        try
+        {
+            var userId = config["Admin:UserId"] ?? "admin";
+            var password = config["Admin:Password"] ?? "Admin@12345";
+            await using var db = new SqlConnection(config.GetConnectionString("Aursil"));
+            await db.OpenAsync();
+
+            var exists = await Dapper.SqlMapper.ExecuteScalarAsync<int>(db, "SELECT COUNT(*) FROM Users WHERE UserId = @userId", new { userId });
+            if (exists > 0) return;
+
+            await Dapper.SqlMapper.ExecuteAsync(db,
+                """
+                INSERT INTO Users (UserId, Name, Email, Phone, PasswordHash, Status, Role)
+                VALUES (@userId, @name, @email, @phone, @hash, 'Active', 'Admin')
+                """,
+                new
+                {
+                    userId,
+                    name = config["Admin:Name"] ?? "AurSil Admin",
+                    email = (config["Admin:Email"] ?? "admin@aursil.local").ToLowerInvariant(),
+                    phone = config["Admin:Phone"] ?? "9000000000",
+                    hash = PasswordHasher.Hash(password),
+                });
+            logger.LogWarning("Created admin account '{UserId}'. Change its password in appsettings.", userId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Could not ensure admin account: {Message}", ex.Message);
+        }
+    }
 }

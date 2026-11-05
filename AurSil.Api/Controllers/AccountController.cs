@@ -12,7 +12,7 @@ namespace AurSil.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api")]
-public partial class AccountController(IConfiguration config, PriceService prices, IHttpClientFactory httpFactory) : ControllerBase
+public partial class AccountController(IConfiguration config, PriceService prices, IHttpClientFactory httpFactory, ActivityLog log) : ControllerBase
 {
     private readonly string _connectionString = config.GetConnectionString("Aursil")!;
 
@@ -89,6 +89,7 @@ public partial class AccountController(IConfiguration config, PriceService price
             """,
             new { userId = User.UserId(), holder, account, ifsc, bankName = info.BankName, branch = $"{info.Branch}, {info.City}" });
 
+        log.Write("BANK_SAVED", User.UserId(), $"Bank account saved: {info.BankName}, IFSC {ifsc}, a/c ending {account[^4..]}");
         var saved = await db.QuerySingleAsync<BankAccountRow>("SELECT * FROM BankAccounts WHERE UserId = @id", new { id = User.UserId() });
         return Ok(saved.ToDto());
     }

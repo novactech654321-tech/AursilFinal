@@ -1,11 +1,11 @@
 -- AurSil database schema (SQL Server)
 -- Run: sqlcmd -S "(localdb)\MSSQLLocalDB" -E -C -i Database\aursil_schema.sql
 
-IF DB_ID('AursilDB1') IS NULL
-    CREATE DATABASE AursilDB1;
+IF DB_ID('aursil') IS NULL
+    CREATE DATABASE aursil;
 GO
 
-USE AursilDB1;
+USE aursil;
 GO
 
 IF OBJECT_ID('dbo.Users') IS NULL

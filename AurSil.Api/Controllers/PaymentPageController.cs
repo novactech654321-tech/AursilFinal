@@ -12,7 +12,7 @@ namespace AurSil.Api.Controllers;
 // payments are only credited after the Razorpay signature is verified on the server.
 [ApiController]
 [Route("pay")]
-public class PaymentPageController(IConfiguration config, OrderService orders, RazorpayService razorpay) : ControllerBase
+public class PaymentPageController(IConfiguration config, OrderService orders, RazorpayService razorpay, ActivityLog log) : ControllerBase
 {
     private readonly string _connectionString = config.GetConnectionString("Aursil")!;
 
@@ -96,8 +96,12 @@ public class PaymentPageController(IConfiguration config, OrderService orders, R
         if (order is null || order.GatewayOrderId != req.RazorpayOrderId)
             return BadRequest(new ApiMessage("Order mismatch."));
         if (!razorpay.VerifySignature(req.RazorpayOrderId, req.RazorpayPaymentId, req.RazorpaySignature))
+        {
+            log.Write("PAYMENT_FAILED", order.UserId, $"Order {orderNo}: invalid Razorpay signature");
             return BadRequest(new ApiMessage("Payment signature is invalid."));
+        }
 
+        log.Write("PAYMENT", order.UserId, $"Order {orderNo}: Razorpay payment {req.RazorpayPaymentId} verified");
         await orders.CompleteBuyAsync(orderNo, "razorpay", req.RazorpayPaymentId);
         return Ok(new ApiMessage("Payment verified."));
     }
@@ -110,6 +114,7 @@ public class PaymentPageController(IConfiguration config, OrderService orders, R
         if (order is null || order.PaymentGateway != "simulated")
             return Redirect($"/pay/result?status=failed&orderNo={orderNo}");
 
+        log.Write("PAYMENT", order.UserId, $"Order {orderNo}: test payment submitted");
         var ok = await orders.CompleteBuyAsync(orderNo, "simulated", "SIM-" + Guid.NewGuid().ToString("N")[..10]);
         return Redirect($"/pay/result?status={(ok ? "success" : "failed")}&orderNo={orderNo}");
     }
@@ -123,7 +128,7 @@ public class PaymentPageController(IConfiguration config, OrderService orders, R
             "cancelled" => ("↩️", "Payment cancelled"),
             _ => ("❌", "Payment failed"),
         };
-        return Html(Layout(title, $"<div class='result'>{icon}</div><h2>{title}</h2><p class='no'>Order {WebUtility.HtmlEncode(orderNo)}</p>"));
+        return Html(Layout(title, $"<div class='result'>{icon}</div><h2>{title}</h2><p class='no'>Order {WebUtility.HtmlEncode(orderNo)}</p><a class='cancel' href='/'>Back to AurSil</a>"));
     }
 
     private ContentResult Html(string html) => Content(html, "text/html; charset=utf-8");

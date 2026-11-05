@@ -12,12 +12,18 @@ public record ResetPasswordRequest(string Email, string Code, string NewPassword
 
 public record ApiMessage(string Message);
 
-public record UserProfile(string UserId, string Name, string Email, string Phone, string Status);
+public record UserProfile(string UserId, string Name, string Email, string Phone, string Status, string Role);
 
 public static class OtpPurpose
 {
     public const string Register = "Register";
     public const string ResetPassword = "ResetPassword";
+}
+
+public static class UserRole
+{
+    public const string Customer = "Customer";
+    public const string Admin = "Admin";
 }
 
 public static class UserStatus
@@ -35,6 +41,7 @@ public class UserRow
     public string Phone { get; set; } = "";
     public string PasswordHash { get; set; } = "";
     public string Status { get; set; } = "";
+    public string Role { get; set; } = UserRole.Customer;
 
-    public UserProfile ToProfile() => new(UserId, Name, Email, Phone, Status);
+    public UserProfile ToProfile() => new(UserId, Name, Email, Phone, Status, Role);
 }

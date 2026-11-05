@@ -46,7 +46,9 @@ public record OrderDto(
     string? PaymentGateway,
     string? PayoutTo,
     DateTime CreatedAt,
-    DateTime? CompletedAt);
+    DateTime? CompletedAt,
+    string? InvoiceNo,
+    string? TransactionId);
 
 public record BuyResponse(OrderDto Order, string PaymentMode, string PayPath);
 
@@ -80,6 +82,7 @@ public class OrderRow
     public string? PaymentGateway { get; set; }
     public string? GatewayOrderId { get; set; }
     public string? GatewayPaymentId { get; set; }
+    public string? InvoiceNo { get; set; }
     public int? BankAccountId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
@@ -87,7 +90,7 @@ public class OrderRow
     public string? AccountNumber { get; set; }
 
     public OrderDto ToDto() => new(OrderNo, Metal, Side, Grams, RatePerGram, Amount, Gst, Total, Status, PaymentGateway,
-        AccountNumber is null ? null : $"{BankName} {BankMask.Mask(AccountNumber)}", CreatedAt, CompletedAt);
+        AccountNumber is null ? null : $"{BankName} {BankMask.Mask(AccountNumber)}", CreatedAt, CompletedAt, InvoiceNo, GatewayPaymentId);
 }
 
 public class BankAccountRow

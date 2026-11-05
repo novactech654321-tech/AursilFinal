@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using AurSil.Api.Models;
 using AurSil.Api.Services;
 using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -9,7 +10,7 @@ namespace AurSil.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public partial class AuthController(IConfiguration config, OtpService otp, EmailSender email, TokenService tokens) : ControllerBase
+public partial class AuthController(IConfiguration config, OtpService otp, EmailSender email, TokenService tokens, ActivityLog log) : ControllerBase
 {
     private readonly string _connectionString = config.GetConnectionString("Aursil")!;
 
@@ -70,25 +71,35 @@ public partial class AuthController(IConfiguration config, OtpService otp, Email
                 INSERT INTO Users (UserId, Name, Email, Phone, PasswordHash, Status)
                 VALUES (@userId, @name, @mail, @phone, @hash, @status)
                 """,
-                new { userId, name, mail, phone, hash = PasswordHasher.Hash(req.Password), status = UserStatus.Active });
+                new { userId, name, mail, phone, hash = PasswordHasher.Hash(req.Password), status = UserStatus.Pending });
         }
 
-        return Ok(new ApiMessage("Registration successful. You can now log in."));
+        log.Write("REGISTER", userId, $"Registered, OTP emailed to {mail}. Waiting for verification. ip={Ip}");
+        // The account stays Pending until the emailed OTP is verified
+        var code = await otp.CreateAsync(mail, OtpPurpose.Register);
+        await email.SendOtpAsync(mail, name, code, OtpPurpose.Register, otp.ExpiryMinutes);
+        return Ok(new { message = "We emailed a 6-digit code. Enter it to verify your account.", email = mail, needsVerification = true });
     }
 
     [HttpPost("verify-otp")]
     public async Task<IActionResult> VerifyOtp(VerifyOtpRequest req)
     {
         var mail = req.Email?.Trim().ToLowerInvariant() ?? "";
+        if (!Regex.IsMatch(req.Code?.Trim() ?? "", @"^\d{6}$"))
+            return BadRequest(new ApiMessage("Enter the 6-digit code."));
         var result = await otp.VerifyAsync(mail, OtpPurpose.Register, req.Code ?? "");
         if (result != OtpResult.Valid)
+        {
+            log.Write("VERIFY_FAILED", null, $"Wrong/expired signup OTP for {mail}: {result}");
             return BadRequest(new ApiMessage(OtpError(result)));
+        }
 
         await using var db = new SqlConnection(_connectionString);
         await db.ExecuteAsync(
             "UPDATE Users SET Status = @active WHERE Email = @mail AND Status = @pending",
             new { mail, active = UserStatus.Active, pending = UserStatus.Pending });
 
+        log.Write("VERIFY_OTP", null, $"Account verified for {mail}");
         return Ok(new ApiMessage("Account verified. You can now log in."));
     }
 
@@ -119,21 +130,39 @@ public partial class AuthController(IConfiguration config, OtpService otp, Email
             new { login, mail = login.ToLowerInvariant() });
 
         if (user is null || !PasswordHasher.Verify(req.Password ?? "", user.PasswordHash))
+        {
+            log.Write("LOGIN_FAILED", user?.UserId ?? login, $"Invalid user id/email or password. ip={Ip}");
             return Unauthorized(new ApiMessage("Invalid User ID / Email or password."));
+        }
 
         if (user.Status == UserStatus.Blocked)
+        {
+            log.Write("LOGIN_BLOCKED", user.UserId, $"Blocked account tried to log in. ip={Ip}");
             return StatusCode(403, new ApiMessage("Your account is blocked. Please contact support."));
+        }
 
         if (user.Status == UserStatus.Pending)
         {
             var code = await otp.CreateAsync(user.Email, OtpPurpose.Register);
             await email.SendOtpAsync(user.Email, user.Name, code, OtpPurpose.Register, otp.ExpiryMinutes);
+            log.Write("LOGIN_PENDING", user.UserId, $"Email not verified yet, new OTP sent. ip={Ip}");
             return StatusCode(403, new { message = "Please verify your email. A new OTP has been sent.", email = user.Email, needsVerification = true });
         }
 
         await db.ExecuteAsync("UPDATE Users SET LastLoginAt = SYSUTCDATETIME() WHERE UserId = @UserId", new { user.UserId });
+        log.Write("LOGIN", user.UserId, $"Logged in (role={user.Role}). ip={Ip}");
         return Ok(new LoginResponse(tokens.Create(user), user.ToProfile()));
     }
+
+    [Authorize]
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        log.Write("LOGOUT", User.UserId(), $"Logged out. ip={Ip}");
+        return Ok(new ApiMessage("Logged out."));
+    }
+
+    private string? Ip => HttpContext.Connection.RemoteIpAddress?.ToString();
 
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(EmailRequest req)
@@ -146,6 +175,7 @@ public partial class AuthController(IConfiguration config, OtpService otp, Email
         {
             var code = await otp.CreateAsync(mail, OtpPurpose.ResetPassword);
             await email.SendOtpAsync(mail, user.Name, code, OtpPurpose.ResetPassword, otp.ExpiryMinutes);
+            log.Write("FORGOT_PWD", user.UserId, $"Password reset OTP sent. ip={Ip}");
         }
         // Same answer either way, so nobody can probe which emails are registered
         return Ok(new ApiMessage("If this email is registered, an OTP has been sent."));
@@ -160,7 +190,10 @@ public partial class AuthController(IConfiguration config, OtpService otp, Email
 
         var result = await otp.VerifyAsync(mail, OtpPurpose.ResetPassword, req.Code ?? "");
         if (result != OtpResult.Valid)
+        {
+            log.Write("RESET_FAILED", null, $"Wrong/expired reset OTP for {mail}: {result}");
             return BadRequest(new ApiMessage(OtpError(result)));
+        }
 
         await using var db = new SqlConnection(_connectionString);
         // A reset via emailed OTP also proves the email, so activate pending accounts
@@ -168,6 +201,7 @@ public partial class AuthController(IConfiguration config, OtpService otp, Email
             "UPDATE Users SET PasswordHash = @hash, Status = CASE WHEN Status = @pending THEN @active ELSE Status END WHERE Email = @mail",
             new { mail, hash = PasswordHasher.Hash(req.NewPassword), pending = UserStatus.Pending, active = UserStatus.Active });
 
+        log.Write("RESET_PWD", null, $"Password reset for {mail}. ip={Ip}");
         return Ok(new ApiMessage("Password reset successful. Please log in."));
     }
 

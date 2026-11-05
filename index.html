@@ -165,9 +165,44 @@
   .otp { display:flex; gap:8px; justify-content:center; margin-top:10px; } .otp input { width:46px; height:54px; text-align:center; font:700 22px Poppins; border:1px solid #D7DCE5; border-radius:10px; }
   .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--navy); color:#fff; padding:12px 20px; border-radius:12px; display:none; z-index:200; box-shadow:0 8px 20px #0005; }
 
+
+  /* admin */
+  .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; }
+  .admin-card { background:var(--bg); border:1px solid var(--line); border-radius:18px; padding:22px; overflow-x:auto; }
+  .admin-card h4 { color:var(--navy); font-size:18px; margin-bottom:6px; }
+  .admin-card label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  .af { height:44px; border:1px solid #D7DCE5; border-radius:12px; width:100%; padding:0 12px; font:15px Poppins; background:#fff; outline:none; }
+  .af:focus { border-color:var(--gold); }
+  .atbl { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  .atbl th { text-align:left; color:var(--muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--line); }
+  .atbl td { padding:8px; border-bottom:1px solid #EEF1F6; }
+  .stockline { font-size:12px; margin-top:8px; opacity:.95; }
+  .stockline.out { color:var(--down); font-weight:600; }
+
+
+  /* AI chat */
+  .chat-fab { position:fixed; right:22px; bottom:22px; z-index:90; height:52px; padding:0 20px; border-radius:26px; border:none; background:var(--gold); color:var(--navy); font:600 15px Poppins; cursor:pointer; box-shadow:0 8px 24px #0005; display:none; }
+  .chat-panel { position:fixed; right:22px; bottom:86px; z-index:95; width:min(400px, 100% - 32px); height:min(560px, 100% - 120px); background:#fff; border-radius:20px; box-shadow:0 20px 50px #0006; display:none; flex-direction:column; overflow:hidden; }
+  .chat-panel.show { display:flex; }
+  .chat-head { background:var(--navy); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+  .chat-head b { color:var(--gold); }
+  .chat-head button { background:#ffffff1a; color:#fff; border:none; border-radius:8px; height:30px; padding:0 10px; font:500 12px Poppins; cursor:pointer; margin-left:6px; }
+  .chat-body { flex:1; overflow-y:auto; padding:14px; background:var(--bg); display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:9px 13px; border-radius:14px; font-size:14px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user { align-self:flex-end; background:var(--navy); color:#fff; }
+  .msg.bot { align-self:flex-start; background:#fff; border:1px solid var(--line); }
+  .msg.tool { align-self:flex-start; background:#FFF8E6; border:1px solid #F5E1A6; font-size:12px; color:var(--gold2); }
+  .chat-input { display:flex; gap:8px; padding:10px; border-top:1px solid var(--line); }
+  .chat-input input { flex:1; height:42px; border:1px solid #D7DCE5; border-radius:12px; padding:0 12px; font:14px Poppins; outline:none; }
+  .chat-input button { height:42px; padding:0 16px; border:none; border-radius:12px; background:var(--gold); color:var(--navy); font:600 14px Poppins; cursor:pointer; }
+  .conn-view { flex:1; overflow-y:auto; padding:14px; display:none; }
+  .conn-item { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #EEF1F6; font-size:14px; }
+  .conn-item small { display:block; color:var(--muted); word-break:break-all; }
+  .conn-view label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+
   /* ---------- responsive ---------- */
   @media (max-width: 960px) {
-    .hero .grid, .dash, .app { grid-template-columns:1fr; }
+    .hero .grid, .dash, .app, .admin-grid { grid-template-columns:1fr; }
     .cards3, .features { grid-template-columns:1fr 1fr; }
     .steps, .loans { grid-template-columns:1fr 1fr; }
     .fgrid { grid-template-columns:1fr 1fr; }
@@ -204,6 +239,9 @@
       <li><a href="#portfolio">Portfolio</a></li>
       <li><a href="#loans">Loans</a></li>
       <li><a href="#features">Why AurSil</a></li>
+      <li id="autopayNav" style="display:none"><a href="#autopay">Autopay</a></li>
+      <li id="invoiceNav" style="display:none"><a href="#invoices">Invoices</a></li>
+      <li id="adminNav" style="display:none"><a href="#admin">Admin</a></li>
     </ul>
     <div class="actions">
       <div id="userBadge" style="display:none;align-items:center;gap:10px;">
@@ -245,6 +283,7 @@
       </div>
       <div class="toggle"><button class="on" id="byInr" onclick="setMode(false)">Buy in ₹</button><button id="byGram" onclick="setMode(true)">Buy in grams</button></div>
       <div class="rate"><div><span style="color:var(--muted)">Buy price</span><br><b id="wRate">₹13,237.17</b> / g</div><span class="live"><i></i>LIVE</span></div>
+      <div class="stockline" id="wStock" style="margin:-6px 0 10px"></div>
       <div class="input"><span id="wPre">₹</span><input id="wAmt" value="1000" inputmode="decimal" oninput="calc()"><span id="wSuf" style="font-size:16px;color:var(--muted)"></span></div>
       <div class="quick" id="wQuick"></div>
       <div class="breakdown">
@@ -304,20 +343,59 @@
         <div class="holding"><div class="badge" style="background:linear-gradient(135deg,#FFD86B,#C9921A)">Au</div><div class="mid"><b>Gold</b><small>0.0733 g</small></div><div class="r"><b>₹941.61</b><small class="down">-₹58.39</small></div></div>
         <div class="holding"><div class="badge" style="background:linear-gradient(135deg,#E6EAF0,#8E98A6);color:var(--navy)">Ag</div><div class="mid"><b>Silver</b><small>10.0000 g</small></div><div class="r"><b>₹1,709.80</b><small class="down">-₹104.96</small></div></div>
         <div class="holding"><div class="badge" style="background:linear-gradient(135deg,#8C6CF5,#3B2A9E)">Pt</div><div class="mid"><b>Platinum</b><small>0 g</small></div><div class="r"><b>₹0.00</b><small>Not invested</small></div></div>
-        <div style="margin-top:12px;font-weight:600;color:var(--navy)">Recent transactions</div>
-        <div class="holding"><div class="badge" style="background:#FFF4D6;color:var(--gold2)">Au</div><div class="mid"><b>Bought Gold</b><small>0.0733 g @ ₹13,237.17/g • 27 Oct 2026</small></div><div class="r"><b>- ₹1,000.00</b><small>Completed</small></div></div>
-        <div class="holding"><div class="badge" style="background:#FFF4D6;color:var(--gold2)">Au</div><div class="mid"><b>Sold Gold</b><small>0.0200 g @ ₹12,845.92/g • 27 Oct 2026</small></div><div class="r"><b class="up">+ ₹256.92</b><small>Paid to SBI XXXX9012</small></div></div>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ================= AUTOPAY (logged-in users) ================= -->
+<section id="autopay" style="display:none">
+  <div class="container">
+    <div class="title"><span class="eyebrow">AUTOPAY</span><h2>Buy automatically every day</h2><p>Pick a metal, a daily amount and an optional total limit. AurSil buys for you at the live rate.</p></div>
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h4>New autopay</h4>
+        <label>Metal</label><select id="apMetal" class="af"><option value="gold">Gold</option><option value="silver">Silver</option><option value="platinum">Platinum</option></select>
+        <label>Amount every day (₹, GST included)</label><input id="apAmount" class="af" inputmode="decimal" placeholder="e.g. 100">
+        <label>Total limit (₹, optional) - stops when reached</label><input id="apLimit" class="af" inputmode="decimal" placeholder="e.g. 3000">
+        <label>Time of day (India time)</label><select id="apHour" class="af"></select>
+        <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="createAutopay()">Start autopay</button>
+        <p style="font-size:12px;color:var(--muted);margin-top:10px">Test mode: purchases complete automatically with no real money. If stock runs out, that day is skipped and it tries again the next day.</p>
+      </div>
+      <div class="admin-card"><h4>My autopay plans</h4><div id="apList"></div></div>
+    </div>
+    <div class="admin-card" style="margin-top:20px"><h4>Recent autopay activity</h4><div id="apRuns"></div></div>
+  </div>
+</section>
+
+<!-- ================= INVOICES (logged-in users) ================= -->
+<section id="invoices" style="display:none;background:#fff">
+  <div class="container">
+    <div class="title"><span class="eyebrow">INVOICES</span><h2>All your invoices</h2><p>A tax invoice for every gold, silver and platinum purchase, with GST, order ID and transaction ID.</p></div>
+    <div class="admin-card">
+      <div class="chips" id="invFilter" style="margin-bottom:10px"></div>
+      <div id="invList"></div>
+    </div>
+  </div>
+</section>
+
+<div class="overlay" id="invOverlay" onclick="if(event.target===this)closeInvoice()">
+  <div style="background:#fff;border-radius:18px;width:min(620px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)">
+      <b style="color:var(--navy)" id="invTitle">Invoice</b>
+      <div><button class="btn btn-gold" style="height:34px;padding:0 14px;font-size:13px" onclick="printInvoice()">🖨 Print / Save PDF</button>
+      <button class="btn btn-light" style="height:34px;padding:0 14px;font-size:13px" onclick="closeInvoice()">Close</button></div>
+    </div>
+    <iframe id="invFrame" style="border:0;width:100%;height:640px;max-height:76vh"></iframe>
+  </div>
+</div>
 
 <!-- ================= HOW IT WORKS ================= -->
 <section>
   <div class="container">
     <div class="title"><span class="eyebrow">HOW IT WORKS</span><h2>Start investing in 4 simple steps</h2></div>
     <div class="steps">
-      <div class="step"><div class="n">1</div><h4>Register</h4><p>Sign up with your email and mobile. Your account becomes active immediately.</p></div>
+      <div class="step"><div class="n">1</div><h4>Register</h4><p>Sign up with your email and mobile, then verify with the 6-digit code we email you.</p></div>
       <div class="step"><div class="n">2</div><h4>Choose a metal</h4><p>Gold, silver or platinum at live market prices.</p></div>
       <div class="step"><div class="n">3</div><h4>Pay securely</h4><p>Buy in rupees or grams via UPI, card or netbanking.</p></div>
       <div class="step"><div class="n">4</div><h4>Sell anytime</h4><p>Get money credited straight to your bank account.</p></div>
@@ -380,6 +458,37 @@
   </div>
 </section>
 
+<!-- ================= ADMIN (visible only to admin login) ================= -->
+<section id="admin" style="display:none;background:#fff">
+  <div class="container">
+    <div class="title"><span class="eyebrow">ADMIN</span><h2>Stock &amp; Vendors</h2><p>Buy stock from vendors and see what is available to customers.</p></div>
+    <div class="cards3" id="adminStock"></div>
+
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h4>Buy stock from vendor</h4>
+        <label>Vendor</label><select id="stVendor" class="af"></select>
+        <label>Metal</label><select id="stMetal" class="af"><option value="gold">Gold</option><option value="silver">Silver</option><option value="platinum">Platinum</option></select>
+        <label>Quantity (grams)</label><input id="stGrams" class="af" inputmode="decimal" placeholder="e.g. 100">
+        <label>Vendor price per gram (₹)</label><input id="stCost" class="af" inputmode="decimal" placeholder="e.g. 12500">
+        <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="addStock()">Add to stock</button>
+      </div>
+      <div class="admin-card">
+        <h4>Add vendor</h4>
+        <label>Name</label><input id="vName" class="af" placeholder="Vendor / company name">
+        <label>Phone</label><input id="vPhone" class="af" placeholder="Phone">
+        <label>Email</label><input id="vEmail" class="af" placeholder="Email">
+        <label>Address</label><input id="vAddress" class="af" placeholder="Address">
+        <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="addVendor()">Save vendor</button>
+      </div>
+    </div>
+
+    <div class="admin-card" style="margin-top:20px"><h4>Stock by vendor</h4><div id="adminVendorStock"></div></div>
+    <div class="admin-card" style="margin-top:20px"><h4>Recent stock purchases</h4><div id="adminPurchases"></div></div>
+    <div class="admin-card" style="margin-top:20px"><h4>Customer holdings (grams)</h4><div id="adminHoldings"></div></div>
+  </div>
+</section>
+
 <!-- ================= FOOTER ================= -->
 <footer>
   <div class="container">
@@ -428,32 +537,75 @@
       <div class="mh"><span class="x" onclick="closeModal()">✕</span><h3>Verify Email</h3><div style="color:#AEB8CC;font-size:14px">Enter the 6-digit code we emailed you</div></div>
       <div class="mb" style="text-align:center">
         <div style="font-size:34px">✉️</div>
-        <div class="otp"><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"><input maxlength="1"></div>
-        <button class="btn btn-gold" onclick="toast('UI demo only – verification is in the app');closeModal()">Verify</button>
-        <div class="alt">Didn't get the code? <a onclick="toast('OTP resent (demo)')">Resend OTP</a></div>
+        <div id="otpEmailLabel" style="font-size:13px;color:#6B7487;margin-top:6px"></div>
+        <div class="otp"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"></div>
+        <button id="otpVerifyBtn" class="btn btn-gold" onclick="verifyOtp()">Verify</button>
+        <div class="alt">Didn't get the code? <a id="otpResendLink" onclick="resendOtp()">Resend OTP</a></div>
       </div>
     </div>
     <!-- forgot -->
     <div id="m-forgot">
       <div class="mh"><span class="x" onclick="closeModal()">✕</span><h3>Forgot Password</h3><div style="color:#AEB8CC;font-size:14px">We'll email you a one-time password</div></div>
       <div class="mb">
-        <label>Registered Email</label><input class="f" placeholder="you@example.com">
-        <button class="btn btn-gold" onclick="showModal('otp')">Send OTP</button>
+        <label>Registered Email</label><input id="forgotEmail" class="f" placeholder="you@example.com" onkeydown="if(event.key==='Enter')sendResetOtp()">
+        <button id="forgotBtn" class="btn btn-gold" onclick="sendResetOtp()">Send OTP</button>
         <div class="alt">Remembered it? <a onclick="showModal('login')">Back to Login</a></div>
+      </div>
+    </div>
+    <!-- reset password -->
+    <div id="m-reset">
+      <div class="mh"><span class="x" onclick="closeModal()">✕</span><h3>Reset Password</h3><div style="color:#AEB8CC;font-size:14px">Enter the code we emailed and choose a new password</div></div>
+      <div class="mb" style="text-align:center">
+        <div style="font-size:34px">🔑</div>
+        <div id="resetEmailLabel" style="font-size:13px;color:#6B7487;margin-top:6px"></div>
+        <div class="otp"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"></div>
+        <div style="text-align:left"><label>New Password</label><input id="resetPassword" class="f" type="password" placeholder="Min 8 characters, letters + numbers"></div>
+        <button id="resetBtn" class="btn btn-gold" onclick="resetPassword()">Reset Password</button>
+        <div class="alt">Didn't get the code? <a onclick="resendResetOtp()">Resend OTP</a></div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- ================= AI CHAT ================= -->
+<button class="chat-fab" id="chatFab" onclick="toggleChat()">💬 AI Assistant</button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-head"><div><b>AurSil</b> AI</div>
+    <div><button onclick="showChatTab('connectors')">🔌 Connectors</button><button onclick="clearChat()">New chat</button><button onclick="toggleChat()">✕</button></div></div>
+  <div class="chat-body" id="chatBody"></div>
+  <div class="chat-input" id="chatInputRow"><input id="chatInput" placeholder="Ask anything..." onkeydown="if(event.key==='Enter')sendChat()"><button id="chatSend" onclick="sendChat()">Send</button></div>
+  <div class="conn-view" id="connView">
+    <div style="display:flex;justify-content:space-between;align-items:center"><b style="color:var(--navy)">MCP connectors</b><button class="btn btn-light" style="height:32px;padding:0 12px;font-size:13px" onclick="showChatTab('chat')">← Back to chat</button></div>
+    <p style="font-size:13px;color:var(--muted);margin-top:6px">Add a remote MCP server so the AI can use its tools. It must be a public https URL.</p>
+    <div id="connList"></div>
+    <label>Name</label><input id="mcpName" class="af" placeholder="e.g. my-tools">
+    <label>Server URL</label><input id="mcpUrl" class="af" placeholder="https://example.com/mcp">
+    <label>Authorization token (optional)</label><input id="mcpToken" class="af" type="password" placeholder="Bearer token, if the server needs one">
+    <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="addMcp()">Add connector</button>
+
+    <hr style="margin:20px 0;border:0;border-top:1px solid var(--line)">
+    <b style="color:var(--navy)">Use AurSil from other AI apps</b>
+    <p style="font-size:13px;color:var(--muted);margin-top:6px">Add AurSil as an MCP connector in Claude, ChatGPT or any MCP app, then chat "buy 2 gram gold". Orders and stock update here automatically.</p>
+    <label>MCP server URL</label><input id="mcpEndpoint" class="af" readonly onclick="this.select()">
+    <label>Token name</label><input id="tokName" class="af" placeholder="e.g. Claude Desktop">
+    <button class="btn btn-gold" style="width:100%;margin-top:10px" onclick="createToken()">Create access token</button>
+    <div id="tokOut"></div>
+    <div id="tokList"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
   // ---------- backend-connected web app state ----------
   const PRICES = {
-    gold:     { name:'Gold',     purity:'24K • 99.9%',  buy:13237.17, sell:12845.92, change:-0.29, spot:4016.80 },
-    silver:   { name:'Silver',   purity:'99.9% pure',   buy:176.19,   sell:170.98,   change:-1.18, spot:53.47 },
-    platinum: { name:'Platinum', purity:'99.95% pure',  buy:4979.43, sell:4832.25, change:-2.11, spot:1511.00 },
+    // Rates start empty and are filled from the backend (/api/prices) - nothing is hardcoded.
+    gold:     { name:'Gold',     purity:'24K • 99.9%',  buy:0, sell:0, change:0, spot:0 },
+    silver:   { name:'Silver',   purity:'99.9% pure',   buy:0, sell:0, change:0, spot:0 },
+    platinum: { name:'Platinum', purity:'99.95% pure',  buy:0, sell:0, change:0, spot:0 },
   };
-  const GST = 0.03;
+  let GST = 0.03; // replaced by the server's GST % when prices load
+  let pricesLoaded = false;
   const SESSION_KEY = 'aursil_session';
   const TOKEN_KEY = 'aursil_token';
   const PORTFOLIO_KEY = 'aursil_portfolio';
@@ -496,7 +648,9 @@
     if (!response.ok) {
       const message = data?.message || data?.title || data?.detail ||
         `Request failed with HTTP ${response.status}.`;
-      throw new Error(message);
+      const err = new Error(message);
+      if (data?.needsVerification) { err.needsVerification = true; err.email = data.email; }
+      throw err;
     }
 
     return data || {};
@@ -583,8 +737,8 @@
       $('registerPassword').value = '';
       $('loginUserField').value = userId;
 
-      toast(result.message || 'Registration successful. Please log in.');
-      showModal('login');
+      toast(result.message || 'Registration successful.');
+      openOtpModal(result.email || email, userId);
     } catch (error) {
       console.error('Registration failed:', error);
       toast(error.message || 'Registration failed.');
@@ -594,6 +748,88 @@
         registerButton.textContent = 'Register';
       }
     }
+  }
+
+  // ---------- email verification (OTP) ----------
+  let otpEmail = '';
+  function otpInputs() { return [...document.querySelectorAll('#m-otp .otp input')]; }
+  function openOtpModal(email, userId) {
+    otpEmail = email;
+    $('otpEmailLabel').textContent = 'Code sent to ' + email;
+    otpInputs().forEach(i => i.value = '');
+    showModal('otp');
+    otpInputs()[0].focus();
+  }
+  async function verifyOtp() {
+    const code = otpInputs().map(i => i.value).join('');
+    if (!otpEmail) { toast('Register first, then verify your email.'); return; }
+    if (!/^\d{6}$/.test(code)) { toast('Enter the 6-digit code.'); return; }
+    const btn = $('otpVerifyBtn');
+    btn.disabled = true; btn.textContent = 'Verifying...';
+    try {
+      const result = await apiRequest('/api/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email: otpEmail, code }) });
+      otpEmail = '';
+      toast(result.message || 'Account verified. You can now log in.');
+      showModal('login');
+    } catch (error) {
+      toast(error.message || 'Verification failed.');
+      otpInputs().forEach(i => i.value = '');
+      otpInputs()[0].focus();
+    } finally { btn.disabled = false; btn.textContent = 'Verify'; }
+  }
+  async function resendOtp() {
+    if (!otpEmail) { toast('Register first, then verify your email.'); return; }
+    try {
+      await apiRequest('/api/auth/resend-otp', { method: 'POST', body: JSON.stringify({ email: otpEmail }) });
+      toast('A new code has been sent.');
+    } catch (error) { toast(error.message || 'Could not resend the code.'); }
+  }
+
+  // ---------- forgot password (OTP) ----------
+  let resetEmail = '';
+  async function sendResetOtp() {
+    const email = $('forgotEmail').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address.'); return; }
+    const btn = $('forgotBtn');
+    btn.disabled = true; btn.textContent = 'Sending...';
+    try {
+      const result = await apiRequest('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+      resetEmail = email;
+      toast(result.message || 'If this email is registered, an OTP has been sent.');
+      $('resetEmailLabel').textContent = 'Code sent to ' + email;
+      document.querySelectorAll('#m-reset .otp input').forEach(i => i.value = '');
+      $('resetPassword').value = '';
+      showModal('reset');
+      document.querySelector('#m-reset .otp input').focus();
+    } catch (error) { toast(error.message || 'Could not send the code.'); }
+    finally { btn.disabled = false; btn.textContent = 'Send OTP'; }
+  }
+  async function resendResetOtp() {
+    if (!resetEmail) { showModal('forgot'); return; }
+    try {
+      await apiRequest('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: resetEmail }) });
+      toast('A new code has been sent if this email is registered.');
+    } catch (error) { toast(error.message || 'Could not resend the code.'); }
+  }
+  async function resetPassword() {
+    const code = [...document.querySelectorAll('#m-reset .otp input')].map(i => i.value).join('');
+    const newPassword = $('resetPassword').value;
+    if (!resetEmail) { showModal('forgot'); return; }
+    if (!/^\d{6}$/.test(code)) { toast('Enter the 6-digit code.'); return; }
+    if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      toast('Password must be at least 8 characters and contain letters and numbers.'); return;
+    }
+    const btn = $('resetBtn');
+    btn.disabled = true; btn.textContent = 'Resetting...';
+    try {
+      const result = await apiRequest('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email: resetEmail, code, newPassword }) });
+      resetEmail = '';
+      $('resetPassword').value = '';
+      $('loginPasswordField').value = '';
+      toast(result.message || 'Password reset successful. Please log in.');
+      showModal('login');
+    } catch (error) { toast(error.message || 'Reset failed.'); }
+    finally { btn.disabled = false; btn.textContent = 'Reset Password'; }
   }
 
   async function loginUser() {
@@ -631,6 +867,7 @@
       toast('Login successful.');
     } catch (error) {
       console.error('Login failed:', error);
+      if (error.needsVerification) { toast(error.message); openOtpModal(error.email); return; }
       toast(error.message || 'Login failed.');
     } finally {
       if (loginButton) {
@@ -641,8 +878,12 @@
   }
 
   function logoutUser() {
+    // Tell the server so the logout shows up in the daily activity log (fire and forget)
+    apiRequest('/api/auth/logout', { method: 'POST' }).catch(() => {});
     clearSession();
+    chatHistory = []; $('chatBody').innerHTML = '';
     renderAuthState();
+    renderPortfolioView();
     toast('Logged out successfully.');
   }
 
@@ -652,6 +893,17 @@
 
   function renderAuthState() {
     const user = getCurrentUser();
+    const admin = user?.role === 'Admin';
+    $('chatFab').style.display = user ? 'block' : 'none';
+    $('autopay').style.display = user ? 'block' : 'none';
+    $('autopayNav').style.display = user ? '' : 'none';
+    $('invoices').style.display = user ? 'block' : 'none';
+    $('invoiceNav').style.display = user ? '' : 'none';
+    if (user) { loadAutopay(); loadInvoices(); }
+    if (!user) $('chatPanel').classList.remove('show');
+    $('adminNav').style.display = admin ? '' : 'none';
+    $('admin').style.display = admin ? 'block' : 'none';
+    if (admin) loadAdmin();
     const loginBtn = $('loginBtn');
     const registerBtn = $('registerBtn');
     const badge = $('userBadge');
@@ -669,6 +921,8 @@
     }
   }
 
+  const isAdmin = () => getCurrentUser()?.role === 'Admin';
+
   function ensurePortfolioForUser() {
     const user = getCurrentUser();
     if (!user) return {};
@@ -680,35 +934,26 @@
     return portfolio[user.userId];
   }
 
-  function handlePurchase() {
+  async function handlePurchase() {
     const user = getCurrentUser();
     if (!user) { openModal('login'); return; }
 
-    const rate = PRICES[wMetal].buy;
-    const grams = byGrams ? parseFloat($('wAmt').value) || 0 : ((parseFloat($('wAmt').value) || 0) / (1 + GST)) / rate;
-    const total = parseFloat($('wTot').textContent.replace(/[₹,]/g, '')) || 0;
-    const raw = readPortfolio();
-    const current = raw[user.userId] || { gold: 0, silver: 0, platinum: 0, invested: 0, history: [] };
+    const value = parseFloat($('wAmt').value) || 0;
+    if (value <= 0) { toast('Enter an amount.'); return; }
 
-    const metalKey = wMetal;
-    const metalName = PRICES[wMetal].name;
-    current[metalKey] = (current[metalKey] || 0) + grams;
-    current.invested = (current.invested || 0) + total;
-    current.history = [{
-      type: 'Bought',
-      metal: metalName,
-      grams: grams,
-      amount: total,
-      date: new Date().toLocaleDateString('en-CA')
-    }, ...(current.history || [])].slice(0, 6);
-
-    raw[user.userId] = current;
-    savePortfolio(raw);
-    renderPortfolioView();
-    toast(`${metalName} added to portfolio.`);
+    try {
+      const body = { metal: wMetal };
+      if (byGrams) body.grams = value; else body.amountInr = value;
+      const res = await apiRequest('/api/orders/buy', { method: 'POST', body: JSON.stringify(body) });
+      // Stock was checked by the server; continue to the payment page
+      window.location.href = res.payPath;
+    } catch (error) {
+      toast(error.message || 'Could not place the order.');
+      loadStock();
+    }
   }
 
-  function renderPortfolioView() {
+  async function renderPortfolioView() {
     const user = getCurrentUser();
     const pfEl = document.querySelector('#portfolio .pf');
     const holdingsEl = document.querySelector('#portfolio .holdings');
@@ -720,53 +965,318 @@
       return;
     }
 
-    const portfolio = readPortfolio()[user.userId] || { gold: 0, silver: 0, platinum: 0, invested: 0, history: [] };
-    const metalKeys = ['gold', 'silver', 'platinum'];
-    const units = Object.fromEntries(metalKeys.map(k => [k, portfolio[k] || 0]));
-    const totalValue = metalKeys.reduce((sum, key) => sum + units[key] * PRICES[key].buy, 0);
-    const holdings = metalKeys.map(key => {
-      const grams = units[key];
-      const value = grams * PRICES[key].buy;
-      const label = PRICES[key].name;
-      return { key, label, grams, value };
-    }).filter(h => h.grams > 0);
+    let pf;
+    try { pf = await apiRequest('/api/portfolio'); }
+    catch (error) { holdingsEl.innerHTML = `<div class="holding"><div class="mid"><b>${error.message}</b></div></div>`; return; }
 
+    const held = pf.holdings.filter(h => h.grams > 0);
     pfEl.innerHTML = `
       <div style="font-size:14px">Portfolio value</div>
-      <div class="v">${inr(totalValue)}</div>
-      <div class="row"><span>Invested</span><b>${inr(portfolio.invested || 0)}</b></div>
-      <div class="row"><span>Returns</span><b>${inr((totalValue - (portfolio.invested || 0)))}</b></div>
-      <div class="row"><span>Holdings</span><b>${holdings.length} metals</b></div>
-      <button class="btn" style="margin-top:20px;width:100%;background:var(--navy);color:#fff" onclick="openModal('login')">Open My Portfolio</button>
-    `;
+      <div class="v">${inr(pf.totalValue)}</div>
+      <div class="row"><span>Invested</span><b>${inr(pf.totalInvested)}</b></div>
+      <div class="row"><span>Returns</span><b>${inr(pf.profitLoss)} (${pf.profitLossPercent}%)</b></div>
+      <div class="row"><span>Holdings</span><b>${held.length} metals</b></div>`;
 
-    if (holdings.length === 0) {
-      holdingsEl.innerHTML = '<div class="holding"><div class="mid"><b>No holdings yet.</b><small>Buy metals to see your portfolio here.</small></div></div>';
+    const history = await loadHistoryHtml();
+    if (held.length === 0) {
+      holdingsEl.innerHTML = '<div class="holding"><div class="mid"><b>No holdings yet.</b><small>Buy metals to see your portfolio here.</small></div></div>' + history;
       return;
     }
-
-    holdingsEl.innerHTML = holdings.map(h => `
+    const bg = { gold:'linear-gradient(135deg,#FFD86B,#C9921A)', silver:'linear-gradient(135deg,#E6EAF0,#8E98A6);color:var(--navy)', platinum:'linear-gradient(135deg,#8C6CF5,#3B2A9E)' };
+    const sym = { gold:'Au', silver:'Ag', platinum:'Pt' };
+    holdingsEl.innerHTML = held.map(h => `
       <div class="holding">
-        <div class="badge" style="background:${h.key === 'gold' ? 'linear-gradient(135deg,#FFD86B,#C9921A)' : h.key === 'silver' ? 'linear-gradient(135deg,#E6EAF0,#8E98A6);color:var(--navy)' : 'linear-gradient(135deg,#8C6CF5,#3B2A9E)'}">${h.key === 'gold' ? 'Au' : h.key === 'silver' ? 'Ag' : 'Pt'}</div>
-        <div class="mid"><b>${h.label}</b><small>${h.grams.toFixed(4)} g</small></div>
-        <div class="r"><b>${inr(h.value)}</b><small>${h.grams > 0 ? 'Active' : 'Not invested'}</small></div>
-      </div>
-    `).join('');
+        <div class="badge" style="background:${bg[h.metal]}">${sym[h.metal]}</div>
+        <div class="mid"><b>${PRICES[h.metal].name}</b><small>${h.grams.toFixed(4)} g</small></div>
+        <div class="r"><b>${inr(h.currentValue)}</b><small class="${h.profitLoss >= 0 ? 'up' : 'down'}">${inr(h.profitLoss)}</small></div>
+      </div>`).join('') + history;
   }
 
-  // ticker
-  const tick = Object.values(PRICES).map(p => `${p.name} <b>${inr(p.buy)}/g</b><span class="${p.change >= 0 ? 'up' : 'down'}">${pct(p.change)}</span>`).join('<span style="opacity:.3">•</span>');
-  $('ticker').innerHTML = (tick + '<span style="opacity:.3">•</span>') .repeat(4);
+  // Transaction history comes from the Orders table
+  async function loadHistoryHtml() {
+    let orders;
+    try { orders = await apiRequest('/api/orders?take=20'); } catch { return ''; }
+    const head = '<div style="margin-top:12px;font-weight:600;color:var(--navy)">Recent transactions</div>';
+    if (!orders.length) return head + '<div class="holding"><div class="mid"><small>No transactions yet.</small></div></div>';
+    const sym = { gold:'Au', silver:'Ag', platinum:'Pt' };
+    return head + orders.map(o => {
+      const buy = o.side === 'Buy';
+      const note = o.status !== 'Completed' ? o.status : (buy ? 'Completed' : (o.payoutTo ? 'Paid to ' + o.payoutTo : 'Completed'));
+      return `<div class="holding"><div class="badge" style="background:#FFF4D6;color:var(--gold2)">${sym[o.metal]}</div>
+        <div class="mid"><b>${buy ? 'Bought' : 'Sold'} ${PRICES[o.metal].name}</b><small>${(+o.grams.toFixed(4))} g @ ${inr(o.ratePerGram)}/g • ${new Date(o.createdAt).toLocaleDateString('en-IN', { dateStyle:'medium' })} • ${o.orderNo}</small></div>
+        <div class="r"><b class="${buy ? '' : 'up'}">${buy ? '- ' : '+ '}${inr(o.total)}</b><small>${note}</small></div></div>`;
+    }).join('');
+  }
 
-  // price cards
-  $('metalCards').innerHTML = Object.entries(PRICES).map(([k, p]) => `
-    <div class="metal ${k}">
-      <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="name">${p.name}</div><div style="font-size:13px;opacity:.9">${p.purity}</div></div><div class="sym">${{gold:'Au',silver:'Ag',platinum:'Pt'}[k]}</div></div>
-      <div class="price">${inr(p.buy)}<span style="font-size:14px;font-weight:400"> /g</span></div>
-      <div class="meta"><span>Sell ${inr(p.sell)}/g</span><span class="chg">${pct(p.change)}</span></div>
-      <button class="btn" onclick="pickMetal('${k}')">Buy ${p.name}</button>
-    </div>`).join('');
-  $('upd').textContent = new Date().toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+  // ---------- stock availability (public) ----------
+  let STOCK = {};
+  async function loadStock() {
+    try { STOCK = await apiRequest('/api/stock'); } catch { return; }
+    showStockLine();
+  }
+  function showStockLine() {
+    const el = $('wStock'), g = STOCK[wMetal];
+    if (!el || g === undefined) return;
+    el.className = 'stockline' + (g <= 0 ? ' out' : '');
+    el.textContent = g <= 0 ? `${PRICES[wMetal].name} is out of stock right now.` : `In stock: ${+g.toFixed(4)} g`;
+  }
+
+
+  // ---------- AI chat + MCP connectors ----------
+  let chatHistory = [];
+  function toggleChat() { $('chatPanel').classList.toggle('show'); if ($('chatPanel').classList.contains('show') && !$('chatBody').children.length) clearChat(); }
+  function clearChat() {
+    chatHistory = [];
+    $('chatBody').innerHTML = '';
+    addMsg('bot', 'Hi! I can check prices and stock, and place orders for you. Try: "buy 2 gram gold". Use 🔌 Connectors to add MCP servers I can use.');
+    showChatTab('chat');
+  }
+  function addMsg(kind, text) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + kind; d.textContent = text;
+    $('chatBody').appendChild(d); $('chatBody').scrollTop = $('chatBody').scrollHeight;
+    return d;
+  }
+  function showChatTab(tab) {
+    const conn = tab === 'connectors';
+    $('connView').style.display = conn ? 'block' : 'none';
+    $('chatBody').style.display = conn ? 'none' : 'flex';
+    $('chatInputRow').style.display = conn ? 'none' : 'flex';
+    if (conn) { loadMcp(); loadTokens(); }
+  }
+  async function sendChat() {
+    const input = $('chatInput'), text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    addMsg('user', text);
+    chatHistory.push({ role: 'user', content: text });
+    const wait = addMsg('bot', '…');
+    $('chatSend').disabled = true;
+    try {
+      const res = await apiRequest('/api/chat', { method: 'POST', body: JSON.stringify({ messages: chatHistory }) });
+      wait.remove();
+      (res.toolCalls || []).forEach(t => addMsg('tool', `🔧 Used ${t}`));
+      addMsg('bot', res.reply || '(no reply)');
+      (res.actions || []).filter(a => a.type === 'pay').forEach(a => {
+        const b = document.createElement('button');
+        b.className = 'btn btn-gold'; b.style.cssText = 'align-self:flex-start;height:40px;font-size:14px';
+        b.textContent = a.label + ' →'; b.onclick = () => { window.location.href = a.url; };
+        $('chatBody').appendChild(b);
+      });
+      $('chatBody').scrollTop = $('chatBody').scrollHeight;
+      if ((res.toolCalls || []).some(t => ['add_stock', 'add_vendor', 'buy_metal'].includes(t))) { loadStock(); loadAdmin(); }
+      chatHistory.push({ role: 'assistant', content: res.reply || '(no reply)' });
+    } catch (error) {
+      wait.remove(); chatHistory.pop();
+      addMsg('bot', '⚠️ ' + error.message);
+    } finally { $('chatSend').disabled = false; }
+  }
+  async function loadMcp() {
+    try {
+      const list = await apiRequest('/api/chat/mcp');
+      $('connList').innerHTML = list.length
+        ? list.map(m => `<div class="conn-item"><div><b>${esc(m.name)}</b>${m.hasToken ? ' 🔑' : ''}<small>${esc(m.url)}</small></div><button class="btn btn-light" style="height:30px;padding:0 10px;font-size:12px" onclick="removeMcp(${m.id})">Remove</button></div>`).join('')
+        : '<p style="color:var(--muted);font-size:14px;margin-top:10px">No connectors yet.</p>';
+    } catch (error) { toast(error.message); }
+  }
+  async function addMcp() {
+    try {
+      const res = await apiRequest('/api/chat/mcp', { method: 'POST', body: JSON.stringify({ name: $('mcpName').value, url: $('mcpUrl').value, authToken: $('mcpToken').value }) });
+      ['mcpName', 'mcpUrl', 'mcpToken'].forEach(id => $(id).value = '');
+      toast(res.message); loadMcp();
+    } catch (error) { toast(error.message); }
+  }
+  async function loadTokens() {
+    $('mcpEndpoint').value = API_BASE_URL + '/mcp';
+    try {
+      const list = await apiRequest('/api/tokens');
+      $('tokList').innerHTML = list.map(t => `<div class="conn-item"><div><b>${esc(t.name)}</b><small>Created ${new Date(t.createdAt).toLocaleDateString('en-IN')}${t.lastUsedAt ? ' • last used ' + new Date(t.lastUsedAt).toLocaleString('en-IN') : ' • never used'}</small></div><button class="btn btn-light" style="height:30px;padding:0 10px;font-size:12px" onclick="deleteToken(${t.id})">Delete</button></div>`).join('');
+    } catch (error) { toast(error.message); }
+  }
+  async function createToken() {
+    try {
+      const res = await apiRequest('/api/tokens', { method: 'POST', body: JSON.stringify({ name: $('tokName').value }) });
+      $('tokName').value = '';
+      $('tokOut').innerHTML = `<div style="background:#FFF8E6;border:1px solid #F5E1A6;border-radius:12px;padding:10px;margin-top:10px;font-size:13px">Copy this token now, it is shown only once:<input class="af" style="margin-top:6px" readonly value="${esc(res.token)}" onclick="this.select()"></div>`;
+      loadTokens();
+    } catch (error) { toast(error.message); }
+  }
+  async function deleteToken(id) {
+    try { await apiRequest('/api/tokens/' + id, { method: 'DELETE' }); loadTokens(); }
+    catch (error) { toast(error.message); }
+  }
+  async function removeMcp(id) {
+    try { await apiRequest('/api/chat/mcp/' + id, { method: 'DELETE' }); loadMcp(); }
+    catch (error) { toast(error.message); }
+  }
+
+  // ---------- autopay ----------
+  $('apHour').innerHTML = Array.from({ length: 24 }, (_, h) =>
+    `<option value="${h}"${h === 10 ? ' selected' : ''}>${String(h % 12 || 12).padStart(2, '0')}:00 ${h < 12 ? 'AM' : 'PM'}</option>`).join('');
+
+  async function loadAutopay() {
+    if (!getCurrentUser()) return;
+    try {
+      const [plans, runs] = await Promise.all([apiRequest('/api/autopay'), apiRequest('/api/autopay/runs')]);
+      const when = t => t ? new Date(t).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+      $('apList').innerHTML = plans.length ? plans.map(p => {
+        const badge = { Active: 'up', Paused: '', Completed: '' }[p.status];
+        const limit = p.totalLimitInr ? ` of ${money(p.totalLimitInr)} limit` : '';
+        const actions = p.status === 'Completed' ? '' : `<button class="btn btn-light" style="height:30px;padding:0 10px;font-size:12px" onclick="setAutopay(${p.id}, '${p.status === 'Active' ? 'Paused' : 'Active'}')">${p.status === 'Active' ? 'Pause' : 'Resume'}</button> `;
+        return `<div class="conn-item"><div><b>${PRICES[p.metal].name}: ${money(p.amountInr)} / day</b> <small class="${badge}" style="display:inline">${p.status}</small>
+          <small>Spent ${money(p.totalSpent)}${limit}${p.status === 'Active' ? ' • next ' + when(p.nextRunAt) : ''}</small></div>
+          <div style="white-space:nowrap">${actions}<button class="btn btn-light" style="height:30px;padding:0 10px;font-size:12px" onclick="deleteAutopay(${p.id})">Delete</button></div></div>`;
+      }).join('') : '<p style="color:var(--muted);font-size:14px;margin-top:8px">No autopay yet.</p>';
+      $('apRuns').innerHTML = table(['When', 'Metal', 'Amount', 'Result', 'Order'],
+        runs.map(r => [when(r.runAt), PRICES[r.metal].name, money(r.amount),
+          `<span class="${r.status === 'Success' ? 'up' : r.status === 'Failed' ? 'down' : ''}">${esc(r.status)}</span> ${esc(r.message)}`, esc(r.orderNo || '-')]));
+    } catch (error) { toast(error.message); }
+  }
+  async function createAutopay() {
+    try {
+      const res = await apiRequest('/api/autopay', { method: 'POST', body: JSON.stringify({
+        metal: $('apMetal').value, amountInr: parseFloat($('apAmount').value) || 0,
+        totalLimitInr: parseFloat($('apLimit').value) || null, runHour: parseInt($('apHour').value) }) });
+      $('apAmount').value = ''; $('apLimit').value = '';
+      toast(res.message); loadAutopay();
+    } catch (error) { toast(error.message); }
+  }
+  async function setAutopay(id, status) {
+    try { const res = await apiRequest(`/api/autopay/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }); toast(res.message); loadAutopay(); }
+    catch (error) { toast(error.message); }
+  }
+  async function deleteAutopay(id) {
+    if (!confirm('Delete this autopay?')) return;
+    try { await apiRequest('/api/autopay/' + id, { method: 'DELETE' }); loadAutopay(); }
+    catch (error) { toast(error.message); }
+  }
+
+  // ---------- invoices ----------
+  let invMetal = 'all';
+  async function loadInvoices() {
+    if (!getCurrentUser()) return;
+    try {
+      const list = await apiRequest('/api/invoices');
+      $('invFilter').innerHTML = [['all', 'All'], ['gold', 'Gold'], ['silver', 'Silver'], ['platinum', 'Platinum']]
+        .map(([k, l]) => `<button class="${invMetal === k ? 'on' : ''}" style="${invMetal === k ? '' : 'background:#EEF1F6;color:var(--navy)'}" onclick="invMetal='${k}';loadInvoices()">${l}</button>`).join('');
+      const rows = list.filter(i => invMetal === 'all' || i.metal === invMetal);
+      $('invList').innerHTML = table(['Invoice', 'Date', 'Metal', 'Type', 'Grams', 'GST', 'Total', 'Order ID', 'Transaction ID', ''],
+        rows.map(i => [esc(i.invoiceNo), new Date(i.completedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' }), PRICES[i.metal].name,
+          i.side === 'Buy' ? (i.paymentGateway === 'autopay' ? 'Buy (autopay)' : 'Buy') : 'Sell', gm(i.grams), i.side === 'Buy' ? money(i.gst) : '-',
+          money(i.total), esc(i.orderNo), esc(i.transactionId || '-'),
+          `<button class="btn btn-light" style="height:30px;padding:0 12px;font-size:12px" onclick="viewInvoice('${esc(i.invoiceNo)}')">View</button>`]));
+    } catch (error) { toast(error.message); }
+  }
+  async function viewInvoice(no) {
+    try {
+      const res = await apiRequest('/api/invoices/' + encodeURIComponent(no));
+      $('invTitle').textContent = 'Invoice ' + no;
+      $('invFrame').srcdoc = '<body style="margin:0;padding:14px;background:#f4f6fa">' + res.html + '</body>';
+      $('invOverlay').classList.add('show');
+    } catch (error) { toast(error.message); }
+  }
+  function closeInvoice() { $('invOverlay').classList.remove('show'); }
+  function printInvoice() { $('invFrame').contentWindow.focus(); $('invFrame').contentWindow.print(); }
+
+  // ---------- admin ----------
+  const money = n => inr(Number(n));
+  const gm = n => (+Number(n).toFixed(4)) + ' g';
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const table = (head, rows) => rows.length
+    ? `<table class="atbl"><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`
+    : '<p style="color:var(--muted);font-size:14px;margin-top:8px">Nothing yet.</p>';
+
+  async function loadAdmin() {
+    if (!isAdmin()) return;
+    try {
+      const [vendors, stock, holdings] = await Promise.all([
+        apiRequest('/api/admin/vendors'), apiRequest('/api/admin/stock'), apiRequest('/api/admin/holdings')]);
+
+      const keepVendor = $('stVendor').value;
+      $('stVendor').innerHTML = vendors.filter(v => v.isActive).map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('')
+        || '<option value="">Add a vendor first</option>';
+      if (keepVendor) $('stVendor').value = keepVendor;
+
+      const sym = { gold:'Au', silver:'Ag', platinum:'Pt' };
+      $('adminStock').innerHTML = stock.metals.map(m => `
+        <div class="metal ${m.metal}">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div class="name">${PRICES[m.metal].name} stock</div><div class="sym">${sym[m.metal]}</div></div>
+          <div class="price">${gm(m.availableGrams)}</div>
+          <div class="meta"><span>Bought ${gm(m.purchasedGrams)}</span><span>Sold ${gm(m.soldToCustomersGrams)}</span></div>
+          <div class="meta"><span>Cost ${money(m.purchaseCost)}</span><span>Buy-back ${gm(m.boughtBackGrams)}</span></div>
+        </div>`).join('');
+
+      $('adminVendorStock').innerHTML = table(['Vendor', 'Metal', 'Grams bought', 'Total cost'],
+        stock.vendors.map(v => [esc(v.vendorName), PRICES[v.metal].name, gm(v.grams), money(v.totalCost)]));
+      $('adminPurchases').innerHTML = table(['Date', 'Vendor', 'Metal', 'Grams', '₹/g', 'Total', 'By'],
+        stock.purchases.map(p => [new Date(p.purchasedAt).toLocaleString('en-IN'), esc(p.vendorName), PRICES[p.metal].name,
+          gm(p.grams), money(p.costPerGram), money(p.totalCost), esc(p.purchasedBy)]));
+      $('adminHoldings').innerHTML = table(['Customer', 'Email', 'Gold', 'Silver', 'Platinum'],
+        holdings.map(h => [esc(h.name) + ' (' + esc(h.userId) + ')', esc(h.email), gm(h.gold), gm(h.silver), gm(h.platinum)]));
+    } catch (error) { toast(error.message); }
+  }
+
+  async function addVendor() {
+    try {
+      const res = await apiRequest('/api/admin/vendors', { method: 'POST', body: JSON.stringify({
+        name: $('vName').value, phone: $('vPhone').value, email: $('vEmail').value, address: $('vAddress').value }) });
+      ['vName', 'vPhone', 'vEmail', 'vAddress'].forEach(id => $(id).value = '');
+      toast(res.message);
+      loadAdmin();
+    } catch (error) { toast(error.message); }
+  }
+
+  async function addStock() {
+    try {
+      const res = await apiRequest('/api/admin/stock/purchase', { method: 'POST', body: JSON.stringify({
+        vendorId: parseInt($('stVendor').value) || 0, metal: $('stMetal').value,
+        grams: parseFloat($('stGrams').value) || 0, costPerGram: parseFloat($('stCost').value) || 0 }) });
+      $('stGrams').value = ''; $('stCost').value = '';
+      toast(res.message);
+      loadAdmin(); loadStock();
+    } catch (error) { toast(error.message); }
+  }
+
+  // ---------- live prices (from the backend, refreshed every minute) ----------
+  function renderPrices() {
+    if (!pricesLoaded) {
+      $('ticker').innerHTML = 'Loading live prices…';
+      $('metalCards').innerHTML = Object.entries(PRICES).map(([k, p]) => `
+        <div class="metal ${k}"><div class="name">${p.name}</div><div class="price" style="font-size:18px">Loading live price…</div></div>`).join('');
+      return;
+    }
+    const tick = Object.values(PRICES).map(p => `${p.name} <b>${inr(p.buy)}/g</b><span class="${p.change >= 0 ? 'up' : 'down'}">${pct(p.change)}</span>`).join('<span style="opacity:.3">•</span>');
+    $('ticker').innerHTML = (tick + '<span style="opacity:.3">•</span>').repeat(4);
+
+    $('metalCards').innerHTML = Object.entries(PRICES).map(([k, p]) => `
+      <div class="metal ${k}">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="name">${p.name}</div><div style="font-size:13px;opacity:.9">${p.purity}</div></div><div class="sym">${{gold:'Au',silver:'Ag',platinum:'Pt'}[k]}</div></div>
+        <div class="price">${inr(p.buy)}<span style="font-size:14px;font-weight:400"> /g</span></div>
+        <div class="meta"><span>Sell ${inr(p.sell)}/g</span><span class="chg">${pct(p.change)}</span></div>
+        <button class="btn" onclick="pickMetal('${k}')">Buy ${p.name}</button>
+      </div>`).join('');
+  }
+
+  async function refreshPrices() {
+    try {
+      const res = await apiRequest('/api/prices');
+      for (const q of res.metals) {
+        const p = PRICES[q.metal];
+        if (!p) continue;
+        p.buy = q.buyRate; p.sell = q.sellRate; p.change = q.change24hPercent; p.spot = q.spotUsdPerOz;
+      }
+      GST = res.gstPercent / 100;
+      pricesLoaded = true;
+      $('upd').textContent = new Date(res.updatedAt).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+      renderPrices();
+      $('wRate').textContent = inr(PRICES[wMetal].buy);
+      calc();               // keeps whatever amount the user already typed
+      loadHistory();
+    } catch (error) {
+      console.warn('Price refresh failed:', error.message);
+      if (!pricesLoaded) $('upd').textContent = 'unavailable';
+    }
+  }
 
   // ---------- buy widget ----------
   let wMetal = 'gold', byGrams = false;
@@ -774,8 +1284,9 @@
   function pickMetal(m, scroll = true) {
     wMetal = m;
     document.querySelectorAll('#wMetal button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
-    $('wRate').textContent = inr(PRICES[m].buy);
+    $('wRate').textContent = PRICES[m].buy ? inr(PRICES[m].buy) : '…';
     setMode(byGrams);
+    showStockLine();
     if (scroll) document.getElementById('home').scrollIntoView();
   }
   function setMode(g) {
@@ -789,6 +1300,7 @@
   }
   function calc() {
     const rate = PRICES[wMetal].buy, v = parseFloat($('wAmt').value) || 0;
+    if (!rate) { $('wGet').textContent = 'Loading live price…'; $('wVal').textContent = $('wGst').textContent = $('wTot').textContent = '—'; return; }
     let g, val, gst, tot;
     if (byGrams) { g = v; val = g * rate; gst = val * GST; tot = val + gst; }
     else { tot = v; val = tot / (1 + GST); gst = tot - val; g = Math.floor(val / rate * 10000) / 10000; }
@@ -798,22 +1310,35 @@
   setMode(false);
   renderAuthState();
   renderPortfolioView();
+  loadStock();
+  // Pick up changes made elsewhere (e.g. an AI app connected over MCP)
+  setInterval(() => {
+    if (document.hidden || !getCurrentUser()) return;
+    renderPortfolioView(); loadStock(); loadAutopay(); loadInvoices(); if (isAdmin()) loadAdmin();
+  }, 10000);
 
-  // ---------- chart (sample series) ----------
+  // ---------- chart (real price history from the backend) ----------
   let cMetal = 'gold', cRange = '1D';
-  function series(metal, range) {
-    const n = { '1D':48, '1W':56, '1M':60, '1Y':60 }[range], base = PRICES[metal].buy;
-    const vol = { '1D':.004, '1W':.01, '1M':.03, '1Y':.09 }[range];
-    let seed = metal.length * 7 + range.charCodeAt(1), v = base * (1 + vol * .6);
-    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-    const out = [];
-    for (let i = 0; i < n; i++) { v += (rnd() - .52) * base * vol / 6; out.push(v); }
-    const shift = base - out[out.length - 1]; return out.map(x => x + shift);
+  let hist = { buy: [], sell: [] };
+  async function loadHistory() {
+    const metal = cMetal, range = cRange;
+    try {
+      const pts = await apiRequest(`/api/prices/history?metal=${metal}&range=${range}`);
+      if (metal !== cMetal || range !== cRange) return; // user switched while loading
+      hist = { buy: pts.map(p => p.buy), sell: pts.map(p => p.sell) };
+    } catch { hist = { buy: [], sell: [] }; }
+    draw();
   }
   function draw() {
     const c = $('canvas'), dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
     c.width = w * dpr; c.height = h * dpr; const x = c.getContext('2d'); x.scale(dpr, dpr);
-    const buy = series(cMetal, cRange), spread = PRICES[cMetal].sell / PRICES[cMetal].buy, sell = buy.map(v => v * spread);
+    const buy = hist.buy, sell = hist.sell;
+    if (buy.length < 2) {
+      x.fillStyle = '#AEB8CC'; x.font = '14px Poppins';
+      x.fillText(pricesLoaded ? 'No price history yet for this range.' : 'Loading live prices…', 12, 30);
+      $('cPrice').textContent = PRICES[cMetal].buy ? inr(PRICES[cMetal].buy) : '…'; $('cChange').textContent = '';
+      return;
+    }
     const all = buy.concat(sell), min = Math.min(...all), max = Math.max(...all), pad = 70, ph = h - 30;
     const X = i => i * (w - pad) / (buy.length - 1), Y = v => 10 + (max - v) / (max - min) * ph;
     x.strokeStyle = '#ffffff14'; x.fillStyle = '#AEB8CC'; x.font = '12px Poppins';
@@ -830,10 +1355,13 @@
   }
   function bindChips(id, attr, set) {
     document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
-      document.querySelectorAll(`#${id} button`).forEach(o => o.classList.toggle('on', o === b)); set(b.dataset[attr]); draw(); });
+      document.querySelectorAll(`#${id} button`).forEach(o => o.classList.toggle('on', o === b)); set(b.dataset[attr]); loadHistory(); });
   }
   bindChips('cMetal', 'm', v => cMetal = v); bindChips('cRange', 'r', v => cRange = v);
-  addEventListener('resize', draw); draw();
+  addEventListener('resize', draw);
+  renderPrices(); draw();
+  refreshPrices();
+  setInterval(refreshPrices, 60000);
 
   // ---------- nav highlight ----------
   const links = [...document.querySelectorAll('#menu a')];
@@ -845,12 +1373,25 @@
   links.forEach(a => a.onclick = () => $('menu').classList.remove('open'));
 
   // ---------- modals / toast ----------
-  const MODALS = ['login', 'register', 'otp', 'forgot'];
+  const MODALS = ['login', 'register', 'otp', 'forgot', 'reset'];
   function showModal(id) { MODALS.forEach(m => $('m-' + m).style.display = m === id ? 'block' : 'none'); }
   function openModal(id) { showModal(id); $('overlay').classList.add('show'); }
   function closeModal() { $('overlay').classList.remove('show'); }
   renderAuthState();
-  document.querySelectorAll('.otp input').forEach((inp, i, all) => inp.oninput = () => { if (inp.value && all[i + 1]) all[i + 1].focus(); });
+  document.querySelectorAll('.otp input').forEach((inp, i, all) => {
+    inp.oninput = () => { inp.value = inp.value.replace(/\D/g, ''); if (inp.value && all[i + 1]) all[i + 1].focus(); };
+    inp.onkeydown = e => {
+      if (e.key === 'Backspace' && !inp.value && all[i - 1]) all[i - 1].focus();
+      if (e.key === 'Enter') inp.closest('[id^="m-"]').querySelector('button.btn-gold').click();
+    };
+    inp.onpaste = e => {
+      const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+      if (!digits) return;
+      e.preventDefault();
+      digits.split('').forEach((d, k) => { if (all[k]) all[k].value = d; });
+      all[Math.min(digits.length, 5)].focus();
+    };
+  });
   function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(el._t); el._t = setTimeout(() => el.style.display = 'none', 2200); }
 </script>
 </body>

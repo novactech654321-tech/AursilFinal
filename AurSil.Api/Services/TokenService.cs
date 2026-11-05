@@ -18,6 +18,7 @@ public class TokenService(IConfiguration config)
             new Claim(JwtRegisteredClaimNames.Sub, user.UserId),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(ClaimTypes.Name, user.Name),
+            new Claim(ClaimTypes.Role, user.Role),
         };
         var token = new JwtSecurityToken(
             issuer: config["Jwt:Issuer"],
